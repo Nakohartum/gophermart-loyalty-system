@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/Nakohartum/gophermart-loyalty-system/internal/model"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type PgDatabase struct {
@@ -37,7 +39,7 @@ func (pg *PgDatabase) OpenConnection(ctx context.Context, databaseUri string) er
 	}
 	pg.connection = conn
 
-	if err := pg.runMigrations(ctx, "migrations"); err != nil {
+	if err := pg.runMigrations(ctx, "..\\..\\migrations"); err != nil {
 		return err
 	}
 	return err
@@ -47,7 +49,7 @@ func (pg *PgDatabase) CloseConnection(ctx context.Context) error {
 	pg.mu.Lock()
 	defer pg.mu.Unlock()
 	if pg.connection == nil {
-		return errNoConnectionToClose
+		return ErrNoConnectionToClose
 	}
 	return pg.connection.Close(ctx)
 }
@@ -56,24 +58,31 @@ func (pg *PgDatabase) CheckConnection(ctx context.Context) error {
 	return pg.connection.Ping(ctx)
 }
 
-func (pg *PgDatabase) RegisterUser(ctx context.Context, login, password string) error {
+func (pg *PgDatabase) RegisterUser(ctx context.Context, login, password string) (int64, error) {
 	pass, err := hashPassword(pg.secretKey, password)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	tx, err := pg.connection.Begin(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	_, err = tx.Exec(ctx, "INSERT INTO \"users\" (\"login\", \"password_hash\") VALUES($1, $2)", login, pass)
-	if err != nil{
-		tx.Rollback(ctx)
-		return err
+	var userId int64
+	err = tx.QueryRow(ctx, "INSERT INTO \"users\" (\"login\", \"password_hash\") VALUES($1, $2) RETURNING \"id\"", login, pass).Scan(&userId)
+	if err != nil {
+		_ = tx.Rollback(ctx)
+
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return 0, ErrUserAlreadyExists
+		}
+
+		return 0, err
 	}
-	return tx.Commit(ctx)
+	return userId, tx.Commit(ctx)
 }
 
-func (pg *PgDatabase) AuthenticateUser(ctx context.Context, login, password string) error{
+func (pg *PgDatabase) AuthenticateUser(ctx context.Context, login, password string) error {
 	var storedHash string
 
 	err := pg.connection.QueryRow(ctx, "SELECT \"password_hash\" FROM \"users\" WHERE login = $1", login).Scan(&storedHash)
@@ -86,21 +95,21 @@ func (pg *PgDatabase) AuthenticateUser(ctx context.Context, login, password stri
 	}
 
 	if storedHash != inputHash {
-		return errPasswordNotMatch
+		return ErrPasswordNotMatch
 	}
 	return nil
 }
 
 func (pg *PgDatabase) CreateOrder(ctx context.Context, order model.Order, userId string) (string, error) {
-	_, err := pg.connection.Exec(ctx, "INSERT INTO \"orders\" (\"number\", \"user_id\", \"status\", \"accrual\", \"uploaded_at\") " +
-	"VALUES ($1, $2, $3, $4, $5)", order.Number, userId, order.Status, order.Accrual, order.UploadedAt)
+	_, err := pg.connection.Exec(ctx, "INSERT INTO \"orders\" (\"number\", \"user_id\", \"status\", \"accrual\", \"uploaded_at\") "+
+		"VALUES ($1, $2, $3, $4, $5)", order.Number, userId, order.Status, order.Accrual, order.UploadedAt)
 	if err != nil {
 		return "", err
 	}
 	return order.Number, nil
 }
 
-func (pg *PgDatabase) UpdateOrder(ctx context.Context, userId int64, number string, status model.Status, accrual *float64) error{
+func (pg *PgDatabase) UpdateOrder(ctx context.Context, userId int64, number string, status model.Status, accrual *float64) error {
 	var prevStatus model.Status
 	tx, err := pg.connection.Begin(ctx)
 	if err != nil {
@@ -109,21 +118,21 @@ func (pg *PgDatabase) UpdateOrder(ctx context.Context, userId int64, number stri
 	row := tx.QueryRow(ctx, "SELECT status FROM orders WHERE number = $1 AND user_id = $2", number, userId)
 	err = row.Scan(&prevStatus)
 	if err != nil {
-		return errOrderNotFound
+		return ErrOrderNotFound
 	}
 	if prevStatus == model.PROCESSED || prevStatus == model.INVALID {
 		tx.Rollback(ctx)
-		return errOrderAlreadyProcessed
+		return ErrOrderAlreadyProcessed
 	}
-	
+
 	tag, err := tx.Exec(ctx, `UPDATE orders SET status = $1, accrual = $2 WHERE number = $3 AND user_id = $4`, status, accrual, number, userId)
 	if err != nil {
 		tx.Rollback(ctx)
 		return err
 	}
-	if tag.RowsAffected() == 0{
+	if tag.RowsAffected() == 0 {
 		tx.Rollback(ctx)
-		return errOrderNotFound
+		return ErrOrderNotFound
 	}
 	if status == model.PROCESSED && accrual != nil {
 		tag, err = tx.Exec(ctx, `UPDATE users SET current_balance = current_balance + $1 WHERE id = $2`, accrual, userId)
@@ -131,28 +140,27 @@ func (pg *PgDatabase) UpdateOrder(ctx context.Context, userId int64, number stri
 			tx.Rollback(ctx)
 			return err
 		}
-		if tag.RowsAffected() == 0{
+		if tag.RowsAffected() == 0 {
 			tx.Rollback(ctx)
-			return errUserNotFound
+			return ErrUserNotFound
 		}
 	}
 	return tx.Commit(ctx)
 }
 
-func hashPassword(secretKey, password string) (string, error){
+func hashPassword(secretKey, password string) (string, error) {
 	h := hmac.New(sha256.New, []byte(secretKey))
 	_, err := h.Write([]byte(password))
 	if err != nil {
-		return "",err
+		return "", err
 	}
 	pass := hex.EncodeToString(h.Sum(nil))
 	return pass, nil
 }
 
-
 func (pg *PgDatabase) runMigrations(ctx context.Context, dir string) error {
 	if pg.connection == nil {
-		return errNoConnectionToRunMigrations
+		return ErrNoConnectionToRunMigrations
 	}
 	if err := pg.ensureMigrationsTable(ctx); err != nil {
 		return err

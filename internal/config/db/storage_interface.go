@@ -9,7 +9,7 @@ type Storage interface {
 	OpenConnection(ctx context.Context, databaseUri string) error
 	CloseConnection(ctx context.Context) error
 	CheckConnection(ctx context.Context) error
-	RegisterUser(ctx context.Context, login, password string) error
+	RegisterUser(ctx context.Context, login, password string)(int64, error)
 	AuthenticateUser(ctx context.Context, login, password string) error
 	CreateOrder(ctx context.Context, order model.Order, userId string) (string, error)
 	UpdateOrder(ctx context.Context, userId int64, number string, status model.Status, accrual *float64) error

@@ -20,6 +20,7 @@ func parseFlags() {
 	flag.StringVar(&ConfigData.AccrualSystemAddress, "r", "", "accrual system address")
 	flag.StringVar(&ConfigData.SecretKey, "k", "", "secret key for encoding information")
 
+	flag.Parse()
 	if v := os.Getenv("RUN_ADDRESS"); v != "" {
 		ConfigData.RunAddress = v
 	}
