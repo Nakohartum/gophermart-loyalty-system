@@ -59,15 +59,53 @@ func (uh *UserHandler) RegisterUser() http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return 
 		}
-		http.SetCookie(w, &http.Cookie{
-			Name: "auth_token",
-			Value: token,
-			Path: "/",
-			HttpOnly: true,
-			Expires: time.Now().Add(24 * time.Hour),
-		})
+		w.Header().Set("Authorization", "Bearer " + token)
 
 		w.WriteHeader(http.StatusOK)
 	}
+	return fun
+}
+
+func (uh *UserHandler) AuthenticateUser() http.HandlerFunc {
+	fun := func (w http.ResponseWriter, r *http.Request)  {
+		if (r.Method != http.MethodPost) {
+			http.Error(w, "not correct method", http.StatusBadRequest)
+			return 
+		}
+
+		var req model.AuthRequest
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		if req.Login == "" || req.Password == "" {
+			http.Error(w, "login and password are required", http.StatusBadRequest)
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+		defer cancel()
+
+		userId, err := uh.databaseService.AuthenticateUser(ctx, req.Login, req.Password)
+
+		if err != nil {
+			if errors.Is(err, db.ErrPasswordNotMatch){
+				http.Error(w, "passwords not match", http.StatusUnauthorized)
+				return 
+			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return 
+		}
+
+		token, err := uh.authService.GenerateToken(userId)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return 
+		}
+		w.Header().Set("Authorization", "Bearer " + token)
+
+		w.WriteHeader(http.StatusOK)
+	}
+
 	return fun
 }

@@ -26,7 +26,8 @@ func main() {
 	uh := handler.NewUserHandler(databaseService, authService)
 	mux := http.NewServeMux()
 	hanlder := handler.GzipMiddleware(mux)
-	mux.Handle("/register", uh.RegisterUser())
+	mux.Handle("/user/register", uh.RegisterUser())
+	mux.Handle("/user/login", uh.AuthenticateUser())
 	fmt.Println("Server started")
 	if err := http.ListenAndServe(ConfigData.RunAddress, hanlder); err != nil {
 		fmt.Println(err)

@@ -14,6 +14,11 @@ type AuthRequest struct {
 	Password string `json:"password"`
 }
 
+type AuthResponse struct {
+	UserId   int64  `json:"user_id"`
+	Password string `json:"password"`
+}
+
 type BalanceResponse struct {
 	Current   float64 `json:"current"`
 	Withdrawn float64 `json:"withdrawn"`

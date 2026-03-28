@@ -20,6 +20,6 @@ func (dr *DatabaseRepository) RegisteUser(ctx context.Context, username, passwor
 	return dr.database.RegisterUser(ctx, username, password)
 }
 
-func (dr *DatabaseRepository) AuthenticateUser(ctx context.Context, username, password string) error {
+func (dr *DatabaseRepository) AuthenticateUser(ctx context.Context, username, password string) (int64, error) {
 	return dr.database.AuthenticateUser(ctx, username, password)
 }

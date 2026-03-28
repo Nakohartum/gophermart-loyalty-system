@@ -8,7 +8,7 @@ import (
 
 type Repository interface {
 	RegisterUser(ctx context.Context, login, password string) (int64, error)
-	AuthenticateUser(ctx context.Context, login, password string) error
+	AuthenticateUser(ctx context.Context, login, password string) (int64, error)
 	CreateOrder(ctx context.Context, order model.Order) (string, error)
 	UploadOrderNumber(ctx context.Context, orderNumber string) error
 	GetListOfUploadedOrders(ctx context.Context) []model.OrderResponse

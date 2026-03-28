@@ -20,6 +20,6 @@ func  (ds *DatabaseService) RegisterUser(ctx context.Context, login, password st
 	return ds.repo.RegisteUser(ctx, login, password)
 }
 
-func  (ds *DatabaseService) AuthenticateUser(ctx context.Context, login, password string) error {
+func  (ds *DatabaseService) AuthenticateUser(ctx context.Context, login, password string) (int64, error) {
 	return ds.repo.AuthenticateUser(ctx, login, password)
 }

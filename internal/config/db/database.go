@@ -82,22 +82,24 @@ func (pg *PgDatabase) RegisterUser(ctx context.Context, login, password string) 
 	return userId, tx.Commit(ctx)
 }
 
-func (pg *PgDatabase) AuthenticateUser(ctx context.Context, login, password string) error {
-	var storedHash string
 
-	err := pg.connection.QueryRow(ctx, "SELECT \"password_hash\" FROM \"users\" WHERE login = $1", login).Scan(&storedHash)
+
+func (pg *PgDatabase) AuthenticateUser(ctx context.Context, login, password string) (int64, error) {
+	var authResponse model.AuthResponse
+
+	err := pg.connection.QueryRow(ctx, "SELECT \"id\", \"password_hash\" FROM \"users\" WHERE login = $1", login).Scan(&authResponse.UserId, &authResponse.Password)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	inputHash, err := hashPassword(pg.secretKey, password)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	if storedHash != inputHash {
-		return ErrPasswordNotMatch
+	if authResponse.Password != inputHash {
+		return 0, ErrPasswordNotMatch
 	}
-	return nil
+	return authResponse.UserId, nil
 }
 
 func (pg *PgDatabase) CreateOrder(ctx context.Context, order model.Order, userId string) (string, error) {
