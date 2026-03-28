@@ -102,13 +102,58 @@ func (pg *PgDatabase) AuthenticateUser(ctx context.Context, login, password stri
 	return authResponse.UserId, nil
 }
 
-func (pg *PgDatabase) CreateOrder(ctx context.Context, order model.Order, userId string) (string, error) {
+func (pg *PgDatabase) CreateOrder(ctx context.Context, order model.Order, userId int64) (string, error) {
 	_, err := pg.connection.Exec(ctx, "INSERT INTO \"orders\" (\"number\", \"user_id\", \"status\", \"accrual\", \"uploaded_at\") "+
 		"VALUES ($1, $2, $3, $4, $5)", order.Number, userId, order.Status, order.Accrual, order.UploadedAt)
-	if err != nil {
-		return "", err
+	if err == nil {
+		return order.Number, nil
 	}
-	return order.Number, nil
+	
+	var pgErr *pgconn.PgError
+
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		var existingUserId int64
+
+		err = pg.connection.QueryRow(ctx, `SELECT user_id FROM orders WHERE number = $1`, order.Number).Scan(&existingUserId)
+		if err != nil {
+			return "", err
+		}
+		if existingUserId == userId {
+			return "", ErrOrderAlreadyUploadedByUser
+		}
+		return "", ErrOrderAlreadyUploadedByAnotherUser
+	}
+	return "", err
+}
+
+func (pg *PgDatabase) GetOrdersForProcessing(ctx context.Context) ([]model.Order, error) {
+	rows, err := pg.connection.Query(
+		ctx,
+		`SELECT user_id, number, status, accrual, uploaded_at
+		 FROM orders
+		 WHERE status IN ($1, $2)
+		 ORDER BY uploaded_at ASC`,
+		model.NEW,
+		model.PROCESSING,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	orders := make([]model.Order, 0)
+	for rows.Next() {
+		var order model.Order
+		if err := rows.Scan(&order.UserID, &order.Number, &order.Status, &order.Accrual, &order.UploadedAt); err != nil {
+			return nil, err
+		}
+		orders = append(orders, order)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return orders, nil
 }
 
 func (pg *PgDatabase) UpdateOrder(ctx context.Context, userId int64, number string, status model.Status, accrual *float64) error {

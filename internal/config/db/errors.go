@@ -10,4 +10,6 @@ var (
 	ErrUserNotFound                = errors.New("user not found")
 	ErrOrderAlreadyProcessed       = errors.New("order already processed")
 	ErrUserAlreadyExists           = errors.New("user already exists")
+	ErrOrderAlreadyUploadedByUser = errors.New("order already uploaded by user")
+	ErrOrderAlreadyUploadedByAnotherUser = errors.New("order already uploaded by another user")
 )

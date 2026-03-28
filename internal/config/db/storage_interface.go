@@ -11,7 +11,8 @@ type Storage interface {
 	CheckConnection(ctx context.Context) error
 	RegisterUser(ctx context.Context, login, password string)(int64, error)
 	AuthenticateUser(ctx context.Context, login, password string) (int64, error)
-	CreateOrder(ctx context.Context, order model.Order, userId string) (string, error)
+	CreateOrder(ctx context.Context, order model.Order, userId int64) (string, error)
+	GetOrdersForProcessing(ctx context.Context) ([]model.Order, error)
 	UpdateOrder(ctx context.Context, userId int64, number string, status model.Status, accrual *float64) error
 	GetListOfUploadedOrders(ctx context.Context) []model.OrderResponse
 	GetCurrentUserBalance(ctx context.Context) model.BalanceResponse

@@ -12,6 +12,7 @@ const (
 )
 
 type Order struct {
+	UserID     int64
 	Number     string
 	Status     Status
 	Accrual    *float64
