@@ -15,7 +15,7 @@ type Config struct {
 var ConfigData = Config {}
 
 func parseFlags() {
-	flag.StringVar(&ConfigData.RunAddress, "a", "localhost:5050", "server run address")
+	flag.StringVar(&ConfigData.RunAddress, "a", ":8080", "server run address")
 	flag.StringVar(&ConfigData.DatabaseUri, "d", "", "database uri")
 	flag.StringVar(&ConfigData.AccrualSystemAddress, "r", "", "accrual system address")
 	flag.StringVar(&ConfigData.SecretKey, "k", "", "secret key for encoding information")
