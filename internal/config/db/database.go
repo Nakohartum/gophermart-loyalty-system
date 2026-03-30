@@ -42,7 +42,7 @@ func (pg *PgDatabase) OpenConnection(ctx context.Context, databaseUri string) er
 	pg.connection = conn
 
 	log.Printf("running migrations from %q", "migrations")
-	if err := pg.runMigrations(ctx, filepath.Join("..", "..", "migrations")); err != nil {
+	if err := pg.runMigrations(ctx, "migrations"); err != nil {
 		return err
 	}
 	log.Printf("migrations completed")
