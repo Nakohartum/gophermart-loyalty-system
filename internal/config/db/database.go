@@ -195,6 +195,24 @@ func (pg *PgDatabase) UpdateOrder(ctx context.Context, userId int64, number stri
 	return tx.Commit(ctx)
 }
 
+func (pg *PgDatabase) GetListOfUploadedOrders(ctx context.Context, userId int64) []model.OrderResponse {
+	rows, err := pg.connection.Query(ctx, `SELECT number, status, accrual, uploaded_at FROM orders WHERE user_id = $1 ORDER BY uploaded_at ASC`, userId)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	orders := make([]model.OrderResponse, 0)
+	for rows.Next() {
+		var odrder model.OrderResponse
+		if err := rows.Scan(&odrder.Number, &odrder.Status, &odrder.Accrual, &odrder.UploadedAt); err != nil {
+			return nil
+		}
+		orders = append(orders, odrder)
+	}
+	return orders
+}
+
 func hashPassword(secretKey, password string) (string, error) {
 	h := hmac.New(sha256.New, []byte(secretKey))
 	_, err := h.Write([]byte(password))

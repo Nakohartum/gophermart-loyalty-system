@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -22,6 +23,19 @@ func NewOrderHandler(dbService *service.DatabaseService, authService *service.Au
 	return &OrderHandler{
 		databaseService: dbService,
 		authService: authService,
+	}
+}
+
+func (oh *OrderHandler) Orders() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			oh.CreateOrder()(w, r)
+		case http.MethodGet:
+			oh.GetListOfUploadedOrders()(w, r)
+		default:
+			http.Error(w, "not correct method", http.StatusMethodNotAllowed)
+		}
 	}
 }
 
@@ -85,5 +99,38 @@ func (oh *OrderHandler) CreateOrder() http.HandlerFunc {
 		w.WriteHeader(http.StatusAccepted)
 	}
 
+	return fun
+}
+
+func (oh *OrderHandler) GetListOfUploadedOrders() http.HandlerFunc {
+	fun := func (w http.ResponseWriter, r *http.Request)  {
+		if r.Method != http.MethodGet {
+			http.Error(w, "not correct method", http.StatusMethodNotAllowed)
+			return 
+		}
+		userId, ok := UserIDFromContext(r.Context())
+
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return 
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 10 * time.Second)
+		defer cancel()
+
+		orders := oh.databaseService.GetListOfUploadedOrders(ctx, userId)
+
+		if len(orders) == 0 {
+			w.WriteHeader(http.StatusNoContent)
+			return 
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+
+		if err := json.NewEncoder(w).Encode(orders); err != nil {
+			http.Error(w, "failed to encode data", http.StatusInternalServerError)
+			return 
+		}
+	}
 	return fun
 }

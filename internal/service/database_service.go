@@ -36,3 +36,7 @@ func (ds *DatabaseService) GetOrdersForProcessing(ctx context.Context) ([]model.
 func (ds *DatabaseService) UpdateOrder(ctx context.Context, userId int64, number string, status model.Status, accrual *float64) error {
 	return ds.repo.UpdateOrder(ctx, userId, number, status, accrual)
 }
+
+func (ds *DatabaseService) GetListOfUploadedOrders(ctx context.Context, userId int64) []model.OrderResponse {
+	return ds.repo.GetListOfUploadedOrders(ctx, userId)
+}

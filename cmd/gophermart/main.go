@@ -33,7 +33,7 @@ func main() {
 	authMiddleware := handler.AuthMiddleware(authService)
 	mux.Handle("/api/user/register", uh.RegisterUser())
 	mux.Handle("/api/user/login", uh.AuthenticateUser())
-	mux.Handle("/api/user/orders", authMiddleware(oh.CreateOrder()))
+	mux.Handle("/api/user/orders", authMiddleware(oh.Orders()))
 
 	if ConfigData.AccrualSystemAddress != "" {
 		go orderProcessor.Start(appCtx)
