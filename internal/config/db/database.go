@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -33,15 +34,18 @@ func NewPgDatabase(secretKey string) *PgDatabase {
 }
 
 func (pg *PgDatabase) OpenConnection(ctx context.Context, databaseUri string) error {
+	log.Printf("connecting to postgres: database_uri_set=%t", databaseUri != "")
 	conn, err := pgx.Connect(ctx, databaseUri)
 	if err != nil {
 		return err
 	}
 	pg.connection = conn
 
-	if err := pg.runMigrations(ctx,  "migrations"); err != nil {
+	log.Printf("running migrations from %q", "migrations")
+	if err := pg.runMigrations(ctx, "migrations"); err != nil {
 		return err
 	}
+	log.Printf("migrations completed")
 	return err
 }
 
@@ -233,6 +237,7 @@ func (pg *PgDatabase) runMigrations(ctx context.Context, dir string) error {
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {
+		log.Printf("read migrations dir %q failed: %v", dir, err)
 		return err
 	}
 

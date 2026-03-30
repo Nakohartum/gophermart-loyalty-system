@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"log"
 	"os"
 )
 
@@ -36,4 +37,12 @@ func parseFlags() {
 	if v := os.Getenv("SECRET_KEY"); v != ""{
 		ConfigData.SecretKey = v
 	}
+
+	log.Printf(
+		"config loaded: run_address=%q database_uri_set=%t accrual_address=%q secret_key_set=%t",
+		ConfigData.RunAddress,
+		ConfigData.DatabaseUri != "",
+		ConfigData.AccrualSystemAddress,
+		ConfigData.SecretKey != "",
+	)
 }

@@ -16,11 +16,14 @@ import (
 func main() {
 	parseFlags()
 	appCtx := context.Background()
+	log.Printf("starting gophermart")
 	db := db.NewPgDatabase(ConfigData.SecretKey)
+	log.Printf("opening database connection")
 	err := db.OpenConnection(appCtx, ConfigData.DatabaseUri)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Fatalf("open database connection: %v", err)
 	}
+	log.Printf("database connection opened")
 	repo := repository.NewDatabaseRepository(db)
 	databaseService := service.NewDatabaseRepo(repo)
 	authService := service.NewAuthService([]byte(ConfigData.SecretKey), 24 * time.Hour)
@@ -36,11 +39,14 @@ func main() {
 	mux.Handle("/api/user/orders", authMiddleware(oh.Orders()))
 
 	if ConfigData.AccrualSystemAddress != "" {
+		log.Printf("starting order processor with accrual address %q", ConfigData.AccrualSystemAddress)
 		go orderProcessor.Start(appCtx)
 	}
 
+	log.Printf("http server listening on %q", ConfigData.RunAddress)
 	fmt.Println("Server started")
 	if err := http.ListenAndServe(ConfigData.RunAddress, hanlder); err != nil {
+		log.Printf("http server stopped: %v", err)
 		fmt.Println(err)
 	}
 	
