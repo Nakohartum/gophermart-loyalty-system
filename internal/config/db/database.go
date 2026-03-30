@@ -39,7 +39,7 @@ func (pg *PgDatabase) OpenConnection(ctx context.Context, databaseUri string) er
 	}
 	pg.connection = conn
 
-	if err := pg.runMigrations(ctx, "..\\..\\migrations"); err != nil {
+	if err := pg.runMigrations(ctx, filepath.Join("..", "..", "migrations")); err != nil {
 		return err
 	}
 	return err
