@@ -40,3 +40,7 @@ func (dr *DatabaseRepository) UpdateOrder(ctx context.Context, userId int64, num
 func (dr *DatabaseRepository) GetListOfUploadedOrders(ctx context.Context, userId int64) []model.OrderResponse {
 	return dr.database.GetListOfUploadedOrders(ctx, userId)
 }
+
+func (dr *DatabaseRepository) GetCurrentUserBalance(ctx context.Context, userId int64) model.BalanceResponse {
+	return dr.database.GetCurrentUserBalance(ctx, userId)
+}

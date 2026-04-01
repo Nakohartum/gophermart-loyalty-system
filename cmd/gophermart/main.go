@@ -37,6 +37,7 @@ func main() {
 	mux.Handle("/api/user/register", uh.RegisterUser())
 	mux.Handle("/api/user/login", uh.AuthenticateUser())
 	mux.Handle("/api/user/orders", authMiddleware(oh.Orders()))
+	mux.Handle("/api/user/balance", authMiddleware(uh.GetCurrentUserBalance()))
 
 	if ConfigData.AccrualSystemAddress != "" {
 		log.Printf("starting order processor with accrual address %q", ConfigData.AccrualSystemAddress)

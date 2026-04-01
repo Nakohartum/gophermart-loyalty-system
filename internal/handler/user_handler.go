@@ -109,3 +109,31 @@ func (uh *UserHandler) AuthenticateUser() http.HandlerFunc {
 
 	return fun
 }
+
+func (uh *UserHandler) GetCurrentUserBalance() http.HandlerFunc {
+	fun := func (w http.ResponseWriter, r *http.Request)  {
+		if r.Method != http.MethodGet {
+			http.Error(w, "not correct method", http.StatusBadRequest)
+			return 
+		}
+		userId, ok := UserIDFromContext(r.Context())
+
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return 
+		}
+		
+		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+		defer cancel()
+
+		userBalance := uh.databaseService.GetCurrentUserBalance(ctx, userId)
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(userBalance); err != nil {
+			http.Error(w, "failed to encode response", http.StatusInternalServerError)
+			return 
+		}
+		w.WriteHeader(http.StatusOK)
+	}
+	return fun 
+}

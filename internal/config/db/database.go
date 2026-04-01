@@ -217,6 +217,15 @@ func (pg *PgDatabase) GetListOfUploadedOrders(ctx context.Context, userId int64)
 	return orders
 }
 
+func (pg *PgDatabase) GetCurrentUserBalance(ctx context.Context, userId int64) model.BalanceResponse {
+	var balance model.BalanceResponse
+	err := pg.connection.QueryRow(ctx, "SELECT current_balance, withdrawn_total FROM users WHERE id = $1", userId).Scan(&balance.Current, &balance.Withdrawn)
+	if err != nil {
+		return model.BalanceResponse{}
+	}
+	return balance
+}
+
 func hashPassword(secretKey, password string) (string, error) {
 	h := hmac.New(sha256.New, []byte(secretKey))
 	_, err := h.Write([]byte(password))

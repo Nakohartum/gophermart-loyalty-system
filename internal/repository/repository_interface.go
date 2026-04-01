@@ -12,7 +12,7 @@ type Repository interface {
 	CreateOrder(ctx context.Context, order model.Order, userId int64) (string, error)
 	GetOrdersForProcessing(ctx context.Context) ([]model.Order, error)
 	GetListOfUploadedOrders(ctx context.Context, userId int64) []model.OrderResponse
-	GetCurrentUserBalance(ctx context.Context) model.BalanceResponse
+	GetCurrentUserBalance(ctx context.Context, userId int64) model.BalanceResponse
 	WithdrawBalance(ctx context.Context, request model.WithdrawRequest) error
 	GetWithdrawalsInfo(ctx context.Context) []model.Withdrawal
 }
