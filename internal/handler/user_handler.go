@@ -196,7 +196,7 @@ func (uh *UserHandler) GetWithdrawalsInfo() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 		defer cancel()
 		
-		withdrawals := uh.databaseService.GetWithdrawalsInfo(ctx)
+		withdrawals := uh.databaseService.GetWithdrawalsInfo(ctx, userId)
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(withdrawals); err != nil {
 			http.Error(w, "failed to encode response", http.StatusInternalServerError)
