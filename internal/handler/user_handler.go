@@ -137,3 +137,72 @@ func (uh *UserHandler) GetCurrentUserBalance() http.HandlerFunc {
 	}
 	return fun 
 }
+
+func (uh *UserHandler) WithdrawBalance() http.HandlerFunc {
+	fun := func (w http.ResponseWriter, r *http.Request)  {
+		if r.Method != http.MethodPost {
+			http.Error(w, "not correct method", http.StatusBadRequest)
+			return 
+		}
+		userId, ok := UserIDFromContext(r.Context())
+		
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return 
+		}
+		var req model.WithdrawRequest
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		if req.Order == "" || req.Sum <= 0 {
+			http.Error(w, "order and sum are required", http.StatusBadRequest)
+			return
+		}
+		req.UserId = userId
+
+		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+		defer cancel()
+		err := uh.databaseService.WithdrawBalance(ctx, req)
+
+		if err != nil {
+			if errors.Is(err, db.ErrInsufficientFunds) {
+				http.Error(w, "insufficient funds", http.StatusPaymentRequired)
+				return 
+			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return 
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}
+	return fun
+}
+
+func (uh *UserHandler) GetWithdrawalsInfo() http.HandlerFunc {
+	fun := func (w http.ResponseWriter, r *http.Request)  {
+		if r.Method != http.MethodGet {
+			http.Error(w, "not correct method", http.StatusBadRequest)
+			return 
+		}
+		userId, ok := UserIDFromContext(r.Context())
+		
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return 
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+		defer cancel()
+		
+		withdrawals := uh.databaseService.GetWithdrawalsInfo(ctx)
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(withdrawals); err != nil {
+			http.Error(w, "failed to encode response", http.StatusInternalServerError)
+			return 
+		}
+		w.WriteHeader(http.StatusOK)
+	}
+	return fun
+}

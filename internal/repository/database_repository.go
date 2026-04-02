@@ -44,3 +44,11 @@ func (dr *DatabaseRepository) GetListOfUploadedOrders(ctx context.Context, userI
 func (dr *DatabaseRepository) GetCurrentUserBalance(ctx context.Context, userId int64) model.BalanceResponse {
 	return dr.database.GetCurrentUserBalance(ctx, userId)
 }
+
+func (dr *DatabaseRepository) WithdrawBalance(ctx context.Context, request model.WithdrawRequest) error {
+	return dr.database.WithdrawBalance(ctx, request)
+}
+
+func (dr *DatabaseRepository) GetWithdrawalsInfo(ctx context.Context, userID int64) []model.Withdrawal{
+	return dr.database.GetWithdrawalsInfo(ctx, userID)
+}

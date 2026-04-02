@@ -226,6 +226,58 @@ func (pg *PgDatabase) GetCurrentUserBalance(ctx context.Context, userId int64) m
 	return balance
 }
 
+func (pg *PgDatabase) WithdrawBalance(ctx context.Context, request model.WithdrawRequest) error {
+	tx, err := pg.connection.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	var currentBalance float64
+	err = tx.QueryRow(ctx, "SELECT current_balance FROM users WHERE id = $1", request.UserId).Scan(&currentBalance)
+	if err != nil {
+		tx.Rollback(ctx)
+		return ErrUserNotFound
+	}
+	if currentBalance < request.Sum {
+		tx.Rollback(ctx)
+		return ErrInsufficientFunds
+	}
+	var orderId int64
+	err = tx.QueryRow(ctx, "INSERT INTO withdrawals (user_id, order_number, sum, processed_at) VALUES ($1, $2, $3, NOW()) RETURNING id",
+		request.UserId, request.Order, request.Sum).Scan(&orderId)
+	if err != nil {
+		tx.Rollback(ctx)
+		return err
+	}
+	tag, err := tx.Exec(ctx, "UPDATE users SET current_balance = current_balance - $1, withdrawn_total = withdrawn_total + $1 WHERE id = $2", request.Sum, request.UserId)
+	if err != nil {
+		tx.Rollback(ctx)
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		tx.Rollback(ctx)
+		return ErrUserNotFound
+	}
+	return tx.Commit(ctx)
+}
+
+func (pg *PgDatabase) GetWithdrawalsInfo(ctx context.Context, userID int64) []model.Withdrawal {
+	rows, err := pg.connection.Query(ctx, `SELECT order_number, sum, processed_at FROM withdrawals WHERE user_id = $1 ORDER BY processed_at ASC`, userID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	
+	withdrawals := make([]model.Withdrawal, 0)
+	for rows.Next() {
+		var withdrawal model.Withdrawal
+		if err := rows.Scan(&withdrawal.Order, &withdrawal.Sum, &withdrawal.ProcessedAt); err != nil {
+			return nil
+		}
+		withdrawals = append(withdrawals, withdrawal)
+	}
+	return withdrawals
+}
+
 func hashPassword(secretKey, password string) (string, error) {
 	h := hmac.New(sha256.New, []byte(secretKey))
 	_, err := h.Write([]byte(password))

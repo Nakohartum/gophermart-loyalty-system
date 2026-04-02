@@ -17,5 +17,5 @@ type Storage interface {
 	GetListOfUploadedOrders(ctx context.Context, userId int64) []model.OrderResponse
 	GetCurrentUserBalance(ctx context.Context, userId int64) model.BalanceResponse
 	WithdrawBalance(ctx context.Context, request model.WithdrawRequest) error
-	GetWithdrawalsInfo(ctx context.Context) []model.Withdrawal
+	GetWithdrawalsInfo(ctx context.Context, userID int64) []model.Withdrawal
 }

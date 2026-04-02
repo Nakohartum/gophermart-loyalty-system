@@ -25,6 +25,7 @@ type BalanceResponse struct {
 }
 
 type WithdrawRequest struct {
+	UserId int64
 	Order string  `json:"order"`
 	Sum   float64 `json:"sum"`
 }
