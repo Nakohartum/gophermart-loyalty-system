@@ -15,7 +15,7 @@ type AuthRequest struct {
 }
 
 type AuthResponse struct {
-	UserId   int64  `json:"user_id"`
+	UserID   int64  `json:"user_id"`
 	Password string `json:"password"`
 }
 
@@ -25,7 +25,7 @@ type BalanceResponse struct {
 }
 
 type WithdrawRequest struct {
-	UserId int64
-	Order string  `json:"order"`
-	Sum   float64 `json:"sum"`
+	UserID int64
+	Order  string  `json:"order"`
+	Sum    float64 `json:"sum"`
 }

@@ -10,6 +10,10 @@ import (
 	"github.com/Nakohartum/gophermart-loyalty-system/internal/service"
 )
 
+type contextKey string
+
+const userIDContextKey contextKey = "userID"
+
 type gzipResponseWriter struct {
 	http.ResponseWriter
 	Writer io.Writer
@@ -53,38 +57,38 @@ func GzipMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func AuthMiddleware(authService *service.AuthService) func(http.Handler) http.Handler {
+func AuthMiddleware(authService service.Auth) func(http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
 
 			if authHeader == "" {
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
-				return 
+				return
 			}
 
 			const bearerPrefix = "Bearer "
-			if !strings.HasPrefix(authHeader, bearerPrefix){
+			if !strings.HasPrefix(authHeader, bearerPrefix) {
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
-				return 
+				return
 			}
 
 			token := strings.TrimPrefix(authHeader, bearerPrefix)
 
-			userId, err := authService.ParseToken(token)
+			userID, err := authService.ParseToken(token)
 
 			if err != nil {
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
-				return 
+				return
 			}
 
-			ctx := context.WithValue(r.Context(), "userId", userId)
+			ctx := context.WithValue(r.Context(), userIDContextKey, userID)
 			h.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
 func UserIDFromContext(ctx context.Context) (int64, bool) {
-	userID, ok := ctx.Value("userId").(int64)
+	userID, ok := ctx.Value(userIDContextKey).(int64)
 	return userID, ok
 }

@@ -33,9 +33,9 @@ func NewPgDatabase(secretKey string) *PgDatabase {
 	}
 }
 
-func (pg *PgDatabase) OpenConnection(ctx context.Context, databaseUri string) error {
-	log.Printf("connecting to postgres: database_uri_set=%t", databaseUri != "")
-	conn, err := pgx.Connect(ctx, databaseUri)
+func (pg *PgDatabase) OpenConnection(ctx context.Context, databaseURI string) error {
+	log.Printf("connecting to postgres: database_uri_set=%t", databaseURI != "")
+	conn, err := pgx.Connect(ctx, databaseURI)
 	if err != nil {
 		return err
 	}
@@ -71,8 +71,8 @@ func (pg *PgDatabase) RegisterUser(ctx context.Context, login, password string) 
 	if err != nil {
 		return 0, err
 	}
-	var userId int64
-	err = tx.QueryRow(ctx, "INSERT INTO \"users\" (\"login\", \"password_hash\") VALUES($1, $2) RETURNING \"id\"", login, pass).Scan(&userId)
+	var userID int64
+	err = tx.QueryRow(ctx, "INSERT INTO \"users\" (\"login\", \"password_hash\") VALUES($1, $2) RETURNING \"id\"", login, pass).Scan(&userID)
 	if err != nil {
 		_ = tx.Rollback(ctx)
 
@@ -83,15 +83,13 @@ func (pg *PgDatabase) RegisterUser(ctx context.Context, login, password string) 
 
 		return 0, err
 	}
-	return userId, tx.Commit(ctx)
+	return userID, tx.Commit(ctx)
 }
-
-
 
 func (pg *PgDatabase) AuthenticateUser(ctx context.Context, login, password string) (int64, error) {
 	var authResponse model.AuthResponse
 
-	err := pg.connection.QueryRow(ctx, "SELECT \"id\", \"password_hash\" FROM \"users\" WHERE login = $1", login).Scan(&authResponse.UserId, &authResponse.Password)
+	err := pg.connection.QueryRow(ctx, "SELECT \"id\", \"password_hash\" FROM \"users\" WHERE login = $1", login).Scan(&authResponse.UserID, &authResponse.Password)
 	if err != nil {
 		return 0, err
 	}
@@ -103,26 +101,26 @@ func (pg *PgDatabase) AuthenticateUser(ctx context.Context, login, password stri
 	if authResponse.Password != inputHash {
 		return 0, ErrPasswordNotMatch
 	}
-	return authResponse.UserId, nil
+	return authResponse.UserID, nil
 }
 
-func (pg *PgDatabase) CreateOrder(ctx context.Context, order model.Order, userId int64) (string, error) {
+func (pg *PgDatabase) CreateOrder(ctx context.Context, order model.Order, userID int64) (string, error) {
 	_, err := pg.connection.Exec(ctx, "INSERT INTO \"orders\" (\"number\", \"user_id\", \"status\", \"accrual\", \"uploaded_at\") "+
-		"VALUES ($1, $2, $3, $4, $5)", order.Number, userId, order.Status, order.Accrual, order.UploadedAt)
+		"VALUES ($1, $2, $3, $4, $5)", order.Number, userID, order.Status, order.Accrual, order.UploadedAt)
 	if err == nil {
 		return order.Number, nil
 	}
-	
+
 	var pgErr *pgconn.PgError
 
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-		var existingUserId int64
+		var existingUserID int64
 
-		err = pg.connection.QueryRow(ctx, `SELECT user_id FROM orders WHERE number = $1`, order.Number).Scan(&existingUserId)
+		err = pg.connection.QueryRow(ctx, `SELECT user_id FROM orders WHERE number = $1`, order.Number).Scan(&existingUserID)
 		if err != nil {
 			return "", err
 		}
-		if existingUserId == userId {
+		if existingUserID == userID {
 			return "", ErrOrderAlreadyUploadedByUser
 		}
 		return "", ErrOrderAlreadyUploadedByAnotherUser
@@ -160,13 +158,13 @@ func (pg *PgDatabase) GetOrdersForProcessing(ctx context.Context) ([]model.Order
 	return orders, nil
 }
 
-func (pg *PgDatabase) UpdateOrder(ctx context.Context, userId int64, number string, status model.Status, accrual *float64) error {
+func (pg *PgDatabase) UpdateOrder(ctx context.Context, userID int64, number string, status model.Status, accrual *float64) error {
 	var prevStatus model.Status
 	tx, err := pg.connection.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	row := tx.QueryRow(ctx, "SELECT status FROM orders WHERE number = $1 AND user_id = $2", number, userId)
+	row := tx.QueryRow(ctx, "SELECT status FROM orders WHERE number = $1 AND user_id = $2", number, userID)
 	err = row.Scan(&prevStatus)
 	if err != nil {
 		return ErrOrderNotFound
@@ -176,7 +174,7 @@ func (pg *PgDatabase) UpdateOrder(ctx context.Context, userId int64, number stri
 		return ErrOrderAlreadyProcessed
 	}
 
-	tag, err := tx.Exec(ctx, `UPDATE orders SET status = $1, accrual = $2 WHERE number = $3 AND user_id = $4`, status, accrual, number, userId)
+	tag, err := tx.Exec(ctx, `UPDATE orders SET status = $1, accrual = $2 WHERE number = $3 AND user_id = $4`, status, accrual, number, userID)
 	if err != nil {
 		tx.Rollback(ctx)
 		return err
@@ -186,7 +184,7 @@ func (pg *PgDatabase) UpdateOrder(ctx context.Context, userId int64, number stri
 		return ErrOrderNotFound
 	}
 	if status == model.PROCESSED && accrual != nil {
-		tag, err = tx.Exec(ctx, `UPDATE users SET current_balance = current_balance + $1 WHERE id = $2`, accrual, userId)
+		tag, err = tx.Exec(ctx, `UPDATE users SET current_balance = current_balance + $1 WHERE id = $2`, accrual, userID)
 		if err != nil {
 			tx.Rollback(ctx)
 			return err
@@ -199,8 +197,8 @@ func (pg *PgDatabase) UpdateOrder(ctx context.Context, userId int64, number stri
 	return tx.Commit(ctx)
 }
 
-func (pg *PgDatabase) GetListOfUploadedOrders(ctx context.Context, userId int64) []model.OrderResponse {
-	rows, err := pg.connection.Query(ctx, `SELECT number, status, accrual, uploaded_at FROM orders WHERE user_id = $1 ORDER BY uploaded_at ASC`, userId)
+func (pg *PgDatabase) GetListOfUploadedOrders(ctx context.Context, userID int64) []model.OrderResponse {
+	rows, err := pg.connection.Query(ctx, `SELECT number, status, accrual, uploaded_at FROM orders WHERE user_id = $1 ORDER BY uploaded_at ASC`, userID)
 	if err != nil {
 		return nil
 	}
@@ -217,9 +215,9 @@ func (pg *PgDatabase) GetListOfUploadedOrders(ctx context.Context, userId int64)
 	return orders
 }
 
-func (pg *PgDatabase) GetCurrentUserBalance(ctx context.Context, userId int64) model.BalanceResponse {
+func (pg *PgDatabase) GetCurrentUserBalance(ctx context.Context, userID int64) model.BalanceResponse {
 	var balance model.BalanceResponse
-	err := pg.connection.QueryRow(ctx, "SELECT current_balance, withdrawn_total FROM users WHERE id = $1", userId).Scan(&balance.Current, &balance.Withdrawn)
+	err := pg.connection.QueryRow(ctx, "SELECT current_balance, withdrawn_total FROM users WHERE id = $1", userID).Scan(&balance.Current, &balance.Withdrawn)
 	if err != nil {
 		return model.BalanceResponse{}
 	}
@@ -232,7 +230,7 @@ func (pg *PgDatabase) WithdrawBalance(ctx context.Context, request model.Withdra
 		return err
 	}
 	var currentBalance float64
-	err = tx.QueryRow(ctx, "SELECT current_balance FROM users WHERE id = $1", request.UserId).Scan(&currentBalance)
+	err = tx.QueryRow(ctx, "SELECT current_balance FROM users WHERE id = $1", request.UserID).Scan(&currentBalance)
 	if err != nil {
 		tx.Rollback(ctx)
 		return ErrUserNotFound
@@ -241,14 +239,14 @@ func (pg *PgDatabase) WithdrawBalance(ctx context.Context, request model.Withdra
 		tx.Rollback(ctx)
 		return ErrInsufficientFunds
 	}
-	var orderId int64
+	var orderID int64
 	err = tx.QueryRow(ctx, "INSERT INTO withdrawals (user_id, order_number, sum, processed_at) VALUES ($1, $2, $3, NOW()) RETURNING id",
-		request.UserId, request.Order, request.Sum).Scan(&orderId)
+		request.UserID, request.Order, request.Sum).Scan(&orderID)
 	if err != nil {
 		tx.Rollback(ctx)
 		return err
 	}
-	tag, err := tx.Exec(ctx, "UPDATE users SET current_balance = current_balance - $1, withdrawn_total = withdrawn_total + $1 WHERE id = $2", request.Sum, request.UserId)
+	tag, err := tx.Exec(ctx, "UPDATE users SET current_balance = current_balance - $1, withdrawn_total = withdrawn_total + $1 WHERE id = $2", request.Sum, request.UserID)
 	if err != nil {
 		tx.Rollback(ctx)
 		return err
@@ -266,7 +264,7 @@ func (pg *PgDatabase) GetWithdrawalsInfo(ctx context.Context, userID int64) []mo
 		return nil
 	}
 	defer rows.Close()
-	
+
 	withdrawals := make([]model.Withdrawal, 0)
 	for rows.Next() {
 		var withdrawal model.Withdrawal

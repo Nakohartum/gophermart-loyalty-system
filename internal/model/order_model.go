@@ -23,10 +23,10 @@ type Order struct {
 type AccrualStatus string
 
 const (
-	REGISTERED          AccrualStatus = "REGISTERED"
-	ACCRUAL_INVALID     AccrualStatus = "INVALID"
-	ACCRUAL_PROCESSING  AccrualStatus = "PROCESSING"
-	ACCRUAL_PROCESSED   AccrualStatus = "PROCESSED"
+	Registered        AccrualStatus = "REGISTERED"
+	AccrualInvalid    AccrualStatus = "INVALID"
+	AccrualProcessing AccrualStatus = "PROCESSING"
+	AccrualProcessed  AccrualStatus = "PROCESSED"
 )
 
 type AccrualOrder struct {

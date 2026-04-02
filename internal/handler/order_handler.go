@@ -15,14 +15,14 @@ import (
 )
 
 type OrderHandler struct {
-	databaseService *service.DatabaseService
-	authService     *service.AuthService
+	databaseService service.Database
+	authService     service.Auth
 }
 
-func NewOrderHandler(dbService *service.DatabaseService, authService *service.AuthService) *OrderHandler {
+func NewOrderHandler(dbService service.Database, authService service.Auth) *OrderHandler {
 	return &OrderHandler{
 		databaseService: dbService,
-		authService: authService,
+		authService:     authService,
 	}
 }
 
@@ -40,48 +40,48 @@ func (oh *OrderHandler) Orders() http.HandlerFunc {
 }
 
 func (oh *OrderHandler) CreateOrder() http.HandlerFunc {
-	fun := func (w http.ResponseWriter, r *http.Request)  {
+	fun := func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "not correct method", http.StatusBadRequest)
-			return 
-		}	
-		userId, ok := UserIDFromContext(r.Context())
+			return
+		}
+		userID, ok := UserIDFromContext(r.Context())
 
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return 
+			return
 		}
 
 		body, err := io.ReadAll(r.Body)
 
 		if err != nil {
 			http.Error(w, "failed to read body", http.StatusBadRequest)
-			return 
+			return
 		}
 
 		orderNumber := strings.TrimSpace(string(body))
 
 		if orderNumber == "" {
 			http.Error(w, "empty order number", http.StatusBadRequest)
-			return 
+			return
 		}
 
 		if !service.IsValidLuhn(orderNumber) {
 			http.Error(w, "not correct number", http.StatusUnprocessableEntity)
-			return 
+			return
 		}
 
-		ctx, cancel := context.WithTimeout(r.Context(), 10 * time.Second)
+		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 
 		defer cancel()
 
 		order := model.Order{
-			Number: orderNumber,
-			Status: model.NEW,
+			Number:     orderNumber,
+			Status:     model.NEW,
 			UploadedAt: time.Now(),
 		}
 
-		_, err = oh.databaseService.CreateOrder(ctx, order, userId)
+		_, err = oh.databaseService.CreateOrder(ctx, order, userID)
 
 		if err != nil {
 			if errors.Is(err, db.ErrOrderAlreadyUploadedByUser) {
@@ -93,7 +93,7 @@ func (oh *OrderHandler) CreateOrder() http.HandlerFunc {
 				return
 			}
 			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return 
+			return
 		}
 
 		w.WriteHeader(http.StatusAccepted)
@@ -103,33 +103,33 @@ func (oh *OrderHandler) CreateOrder() http.HandlerFunc {
 }
 
 func (oh *OrderHandler) GetListOfUploadedOrders() http.HandlerFunc {
-	fun := func (w http.ResponseWriter, r *http.Request)  {
+	fun := func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "not correct method", http.StatusMethodNotAllowed)
-			return 
+			return
 		}
-		userId, ok := UserIDFromContext(r.Context())
+		userID, ok := UserIDFromContext(r.Context())
 
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return 
+			return
 		}
 
-		ctx, cancel := context.WithTimeout(r.Context(), 10 * time.Second)
+		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 		defer cancel()
 
-		orders := oh.databaseService.GetListOfUploadedOrders(ctx, userId)
+		orders := oh.databaseService.GetListOfUploadedOrders(ctx, userID)
 
 		if len(orders) == 0 {
 			w.WriteHeader(http.StatusNoContent)
-			return 
+			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 
 		if err := json.NewEncoder(w).Encode(orders); err != nil {
 			http.Error(w, "failed to encode data", http.StatusInternalServerError)
-			return 
+			return
 		}
 	}
 	return fun

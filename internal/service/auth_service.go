@@ -14,7 +14,7 @@ type AuthService struct {
 func NewAuthService(secretKey []byte, tokenTTL time.Duration) *AuthService {
 	return &AuthService{
 		secretKey: secretKey,
-		tokenTTL: tokenTTL,
+		tokenTTL:  tokenTTL,
 	}
 }
 
@@ -23,12 +23,12 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-func (authService *AuthService) GenerateToken(userId int64) (string, error) {
-	claims := Claims {
-		UserID: userId,
+func (authService *AuthService) GenerateToken(userID int64) (string, error) {
+	claims := Claims{
+		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(authService.tokenTTL)),
-			IssuedAt: jwt.NewNumericDate(time.Now()),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
 
@@ -42,12 +42,12 @@ func (authService *AuthService) GenerateToken(userId int64) (string, error) {
 	return tokenString, nil
 }
 
-func (a *AuthService) ParseToken(tokenString string) (int64, error) {
+func (authService *AuthService) ParseToken(tokenString string) (int64, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(t *jwt.Token) (interface{}, error) {
 		if t.Method != jwt.SigningMethodHS256 {
 			return nil, ErrInvalidToken
 		}
-		return a.secretKey, nil
+		return authService.secretKey, nil
 	})
 
 	if err != nil {

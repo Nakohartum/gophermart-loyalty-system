@@ -13,14 +13,14 @@ import (
 )
 
 type UserHandler struct {
-	databaseService *service.DatabaseService
-	authService     *service.AuthService
+	databaseService service.Database
+	authService     service.Auth
 }
 
-func NewUserHandler(dbService *service.DatabaseService, authService *service.AuthService) *UserHandler {
+func NewUserHandler(dbService service.Database, authService service.Auth) *UserHandler {
 	return &UserHandler{
 		databaseService: dbService,
-		authService: authService,
+		authService:     authService,
 	}
 }
 
@@ -43,7 +43,7 @@ func (uh *UserHandler) RegisterUser() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 		defer cancel()
 
-		userId, err := uh.databaseService.RegisterUser(ctx, req.Login, req.Password)
+		userID, err := uh.databaseService.RegisterUser(ctx, req.Login, req.Password)
 
 		if err != nil {
 			if errors.Is(err, db.ErrUserAlreadyExists) {
@@ -54,12 +54,12 @@ func (uh *UserHandler) RegisterUser() http.HandlerFunc {
 			return
 		}
 
-		token, err := uh.authService.GenerateToken(userId)
+		token, err := uh.authService.GenerateToken(userID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return 
+			return
 		}
-		w.Header().Set("Authorization", "Bearer " + token)
+		w.Header().Set("Authorization", "Bearer "+token)
 
 		w.WriteHeader(http.StatusOK)
 	}
@@ -67,10 +67,10 @@ func (uh *UserHandler) RegisterUser() http.HandlerFunc {
 }
 
 func (uh *UserHandler) AuthenticateUser() http.HandlerFunc {
-	fun := func (w http.ResponseWriter, r *http.Request)  {
-		if (r.Method != http.MethodPost) {
+	fun := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
 			http.Error(w, "not correct method", http.StatusBadRequest)
-			return 
+			return
 		}
 
 		var req model.AuthRequest
@@ -86,23 +86,23 @@ func (uh *UserHandler) AuthenticateUser() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 		defer cancel()
 
-		userId, err := uh.databaseService.AuthenticateUser(ctx, req.Login, req.Password)
+		userID, err := uh.databaseService.AuthenticateUser(ctx, req.Login, req.Password)
 
 		if err != nil {
-			if errors.Is(err, db.ErrPasswordNotMatch){
+			if errors.Is(err, db.ErrPasswordNotMatch) {
 				http.Error(w, "passwords not match", http.StatusUnauthorized)
-				return 
+				return
 			}
 			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return 
+			return
 		}
 
-		token, err := uh.authService.GenerateToken(userId)
+		token, err := uh.authService.GenerateToken(userID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return 
+			return
 		}
-		w.Header().Set("Authorization", "Bearer " + token)
+		w.Header().Set("Authorization", "Bearer "+token)
 
 		w.WriteHeader(http.StatusOK)
 	}
@@ -111,44 +111,44 @@ func (uh *UserHandler) AuthenticateUser() http.HandlerFunc {
 }
 
 func (uh *UserHandler) GetCurrentUserBalance() http.HandlerFunc {
-	fun := func (w http.ResponseWriter, r *http.Request)  {
+	fun := func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "not correct method", http.StatusBadRequest)
-			return 
+			return
 		}
-		userId, ok := UserIDFromContext(r.Context())
+		userID, ok := UserIDFromContext(r.Context())
 
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return 
+			return
 		}
-		
+
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 		defer cancel()
 
-		userBalance := uh.databaseService.GetCurrentUserBalance(ctx, userId)
+		userBalance := uh.databaseService.GetCurrentUserBalance(ctx, userID)
 
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(userBalance); err != nil {
 			http.Error(w, "failed to encode response", http.StatusInternalServerError)
-			return 
+			return
 		}
 		w.WriteHeader(http.StatusOK)
 	}
-	return fun 
+	return fun
 }
 
 func (uh *UserHandler) WithdrawBalance() http.HandlerFunc {
-	fun := func (w http.ResponseWriter, r *http.Request)  {
+	fun := func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "not correct method", http.StatusBadRequest)
-			return 
+			return
 		}
-		userId, ok := UserIDFromContext(r.Context())
-		
+		userID, ok := UserIDFromContext(r.Context())
+
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return 
+			return
 		}
 		var req model.WithdrawRequest
 
@@ -160,7 +160,7 @@ func (uh *UserHandler) WithdrawBalance() http.HandlerFunc {
 			http.Error(w, "order and sum are required", http.StatusBadRequest)
 			return
 		}
-		req.UserId = userId
+		req.UserID = userID
 
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 		defer cancel()
@@ -169,10 +169,10 @@ func (uh *UserHandler) WithdrawBalance() http.HandlerFunc {
 		if err != nil {
 			if errors.Is(err, db.ErrInsufficientFunds) {
 				http.Error(w, "insufficient funds", http.StatusPaymentRequired)
-				return 
+				return
 			}
 			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return 
+			return
 		}
 
 		w.WriteHeader(http.StatusOK)
@@ -181,26 +181,26 @@ func (uh *UserHandler) WithdrawBalance() http.HandlerFunc {
 }
 
 func (uh *UserHandler) GetWithdrawalsInfo() http.HandlerFunc {
-	fun := func (w http.ResponseWriter, r *http.Request)  {
+	fun := func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "not correct method", http.StatusBadRequest)
-			return 
+			return
 		}
-		userId, ok := UserIDFromContext(r.Context())
-		
+		userID, ok := UserIDFromContext(r.Context())
+
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return 
+			return
 		}
 
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 		defer cancel()
-		
-		withdrawals := uh.databaseService.GetWithdrawalsInfo(ctx, userId)
+
+		withdrawals := uh.databaseService.GetWithdrawalsInfo(ctx, userID)
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(withdrawals); err != nil {
 			http.Error(w, "failed to encode response", http.StatusInternalServerError)
-			return 
+			return
 		}
 		w.WriteHeader(http.StatusOK)
 	}

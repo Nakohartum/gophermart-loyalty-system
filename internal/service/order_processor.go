@@ -10,12 +10,12 @@ import (
 )
 
 type OrderProcessor struct {
-	databaseService *DatabaseService
-	accrualService  *AccrualService
+	databaseService Database
+	accrualService  Accrual
 	interval        time.Duration
 }
 
-func NewOrderProcessor(databaseService *DatabaseService, accrualService *AccrualService, interval time.Duration) *OrderProcessor {
+func NewOrderProcessor(databaseService Database, accrualService Accrual, interval time.Duration) *OrderProcessor {
 	return &OrderProcessor{
 		databaseService: databaseService,
 		accrualService:  accrualService,
@@ -74,11 +74,11 @@ func (op *OrderProcessor) processOrder(ctx context.Context, order model.Order) e
 
 func mapAccrualStatus(status model.AccrualStatus) model.Status {
 	switch status {
-	case model.ACCRUAL_INVALID:
+	case model.AccrualInvalid:
 		return model.INVALID
-	case model.ACCRUAL_PROCESSED:
+	case model.AccrualProcessed:
 		return model.PROCESSED
-	case model.ACCRUAL_PROCESSING, model.REGISTERED:
+	case model.AccrualProcessing, model.Registered:
 		return model.PROCESSING
 	default:
 		return model.PROCESSING
