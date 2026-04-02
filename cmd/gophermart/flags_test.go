@@ -19,7 +19,7 @@ func TestTextParseFlags(t *testing.T) {
 			args: nil,
 			expected: Config{
 				RunAddress:           ":8080",
-				DatabaseUri:          "",
+				DatabaseURI:          "",
 				AccrualSystemAddress: "",
 				SecretKey:            "",
 			},
@@ -29,7 +29,7 @@ func TestTextParseFlags(t *testing.T) {
 			args: []string{"-a", ":9090", "-d", "postgres://db", "-r", "http://accrual", "-k", "secret"},
 			expected: Config{
 				RunAddress:           ":9090",
-				DatabaseUri:          "postgres://db",
+				DatabaseURI:          "postgres://db",
 				AccrualSystemAddress: "http://accrual",
 				SecretKey:            "secret",
 			},
@@ -45,7 +45,7 @@ func TestTextParseFlags(t *testing.T) {
 			},
 			expected: Config{
 				RunAddress:           ":7070",
-				DatabaseUri:          "postgres://env",
+				DatabaseURI:          "postgres://env",
 				AccrualSystemAddress: "http://env",
 				SecretKey:            "env-secret",
 			},

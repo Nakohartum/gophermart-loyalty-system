@@ -19,14 +19,14 @@ func main() {
 	log.Printf("starting gophermart")
 	db := db.NewPgDatabase(ConfigData.SecretKey)
 	log.Printf("opening database connection")
-	err := db.OpenConnection(appCtx, ConfigData.DatabaseUri)
+	err := db.OpenConnection(appCtx, ConfigData.DatabaseURI)
 	if err != nil {
 		log.Fatalf("open database connection: %v", err)
 	}
 	log.Printf("database connection opened")
 	repo := repository.NewDatabaseRepository(db)
 	databaseService := service.NewDatabaseRepo(repo)
-	authService := service.NewAuthService([]byte(ConfigData.SecretKey), 24 * time.Hour)
+	authService := service.NewAuthService([]byte(ConfigData.SecretKey), 24*time.Hour)
 	accrualService := service.NewAccrualService(ConfigData.AccrualSystemAddress)
 	orderProcessor := service.NewOrderProcessor(databaseService, accrualService, 2*time.Second)
 	uh := handler.NewUserHandler(databaseService, authService)
@@ -51,5 +51,5 @@ func main() {
 		log.Printf("http server stopped: %v", err)
 		fmt.Println(err)
 	}
-	
+
 }
