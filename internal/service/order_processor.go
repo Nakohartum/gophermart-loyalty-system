@@ -10,12 +10,12 @@ import (
 )
 
 type OrderProcessor struct {
-	databaseService Database
+	databaseService OrderProcessing
 	accrualService  Accrual
 	interval        time.Duration
 }
 
-func NewOrderProcessor(databaseService Database, accrualService Accrual, interval time.Duration) *OrderProcessor {
+func NewOrderProcessor(databaseService OrderProcessing, accrualService Accrual, interval time.Duration) *OrderProcessor {
 	return &OrderProcessor{
 		databaseService: databaseService,
 		accrualService:  accrualService,

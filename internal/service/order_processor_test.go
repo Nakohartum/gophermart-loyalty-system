@@ -36,31 +36,31 @@ func TestTextMapAccrualStatus(t *testing.T) {
 func TestTextProcessOrder(t *testing.T) {
 	testCases := []struct {
 		name      string
-		setup     func(database *mocks.MockDatabase, accrual *mocks.MockAccrual)
+		setup     func(database *mocks.MockOrderProcessing, accrual *mocks.MockAccrual)
 		expectErr error
 	}{
 		{
 			name: "try later returns nil",
-			setup: func(database *mocks.MockDatabase, accrual *mocks.MockAccrual) {
+			setup: func(database *mocks.MockOrderProcessing, accrual *mocks.MockAccrual) {
 				accrual.EXPECT().GetOrder(gomock.Any(), "123").Return(nil, ErrAccrualTryLater)
 			},
 		},
 		{
 			name: "nil order returns nil",
-			setup: func(database *mocks.MockDatabase, accrual *mocks.MockAccrual) {
+			setup: func(database *mocks.MockOrderProcessing, accrual *mocks.MockAccrual) {
 				accrual.EXPECT().GetOrder(gomock.Any(), "123").Return(nil, nil)
 			},
 		},
 		{
 			name: "accrual error returns error",
-			setup: func(database *mocks.MockDatabase, accrual *mocks.MockAccrual) {
+			setup: func(database *mocks.MockOrderProcessing, accrual *mocks.MockAccrual) {
 				accrual.EXPECT().GetOrder(gomock.Any(), "123").Return(nil, errors.New("accrual failed"))
 			},
 			expectErr: errors.New("accrual failed"),
 		},
 		{
 			name: "update order success",
-			setup: func(database *mocks.MockDatabase, accrual *mocks.MockAccrual) {
+			setup: func(database *mocks.MockOrderProcessing, accrual *mocks.MockAccrual) {
 				value := 10.5
 				accrual.EXPECT().GetOrder(gomock.Any(), "123").Return(&model.AccrualOrder{
 					Order:   "123",
@@ -72,7 +72,7 @@ func TestTextProcessOrder(t *testing.T) {
 		},
 		{
 			name: "update order error",
-			setup: func(database *mocks.MockDatabase, accrual *mocks.MockAccrual) {
+			setup: func(database *mocks.MockOrderProcessing, accrual *mocks.MockAccrual) {
 				accrual.EXPECT().GetOrder(gomock.Any(), "123").Return(&model.AccrualOrder{
 					Order:  "123",
 					Status: model.AccrualInvalid,
@@ -86,7 +86,7 @@ func TestTextProcessOrder(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
-			database := mocks.NewMockDatabase(ctrl)
+			database := mocks.NewMockOrderProcessing(ctrl)
 			accrual := mocks.NewMockAccrual(ctrl)
 			tc.setup(database, accrual)
 
@@ -109,17 +109,17 @@ func TestTextProcessOrder(t *testing.T) {
 func TestTextProcessPendingOrders(t *testing.T) {
 	testCases := []struct {
 		name  string
-		setup func(database *mocks.MockDatabase, accrual *mocks.MockAccrual)
+		setup func(database *mocks.MockOrderProcessing, accrual *mocks.MockAccrual)
 	}{
 		{
 			name: "load orders error",
-			setup: func(database *mocks.MockDatabase, accrual *mocks.MockAccrual) {
+			setup: func(database *mocks.MockOrderProcessing, accrual *mocks.MockAccrual) {
 				database.EXPECT().GetOrdersForProcessing(gomock.Any()).Return(nil, errors.New("load failed"))
 			},
 		},
 		{
 			name: "processes loaded orders",
-			setup: func(database *mocks.MockDatabase, accrual *mocks.MockAccrual) {
+			setup: func(database *mocks.MockOrderProcessing, accrual *mocks.MockAccrual) {
 				database.EXPECT().GetOrdersForProcessing(gomock.Any()).Return([]model.Order{
 					{UserID: 1, Number: "111"},
 					{UserID: 2, Number: "222"},
@@ -133,7 +133,7 @@ func TestTextProcessPendingOrders(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
-			database := mocks.NewMockDatabase(ctrl)
+			database := mocks.NewMockOrderProcessing(ctrl)
 			accrual := mocks.NewMockAccrual(ctrl)
 			tc.setup(database, accrual)
 
@@ -145,7 +145,7 @@ func TestTextProcessPendingOrders(t *testing.T) {
 
 func TestTextStart(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	database := mocks.NewMockDatabase(ctrl)
+	database := mocks.NewMockOrderProcessing(ctrl)
 	accrual := mocks.NewMockAccrual(ctrl)
 	processor := NewOrderProcessor(database, accrual, time.Hour)
 

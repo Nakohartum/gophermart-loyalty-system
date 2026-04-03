@@ -1,10 +1,11 @@
-package db
+package apperrors
 
 import "errors"
 
 var (
 	ErrNoConnectionToClose               = errors.New("no connection to close")
 	ErrNoConnectionToRunMigrations       = errors.New("no connection to run migrations")
+	ErrInvalidOrderNumber                = errors.New("invalid order number")
 	ErrPasswordNotMatch                  = errors.New("passwords do not match")
 	ErrOrderNotFound                     = errors.New("order not found")
 	ErrUserNotFound                      = errors.New("user not found")

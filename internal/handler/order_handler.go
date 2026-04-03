@@ -9,33 +9,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Nakohartum/gophermart-loyalty-system/internal/config/db"
-	"github.com/Nakohartum/gophermart-loyalty-system/internal/model"
+	"github.com/Nakohartum/gophermart-loyalty-system/internal/apperrors"
 	"github.com/Nakohartum/gophermart-loyalty-system/internal/service"
 )
 
 type OrderHandler struct {
-	databaseService service.Database
-	authService     service.Auth
+	orderService service.Orders
 }
 
-func NewOrderHandler(dbService service.Database, authService service.Auth) *OrderHandler {
+func NewOrderHandler(orderService service.Orders) *OrderHandler {
 	return &OrderHandler{
-		databaseService: dbService,
-		authService:     authService,
-	}
-}
-
-func (oh *OrderHandler) Orders() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodPost:
-			oh.CreateOrder()(w, r)
-		case http.MethodGet:
-			oh.GetListOfUploadedOrders()(w, r)
-		default:
-			http.Error(w, "not correct method", http.StatusMethodNotAllowed)
-		}
+		orderService: orderService,
 	}
 }
 
@@ -59,36 +43,26 @@ func (oh *OrderHandler) CreateOrder() http.HandlerFunc {
 			return
 		}
 
-		orderNumber := strings.TrimSpace(string(body))
-
-		if orderNumber == "" {
+		if strings.TrimSpace(string(body)) == "" {
 			http.Error(w, "empty order number", http.StatusBadRequest)
 			return
 		}
 
-		if !service.IsValidLuhn(orderNumber) {
-			http.Error(w, "not correct number", http.StatusUnprocessableEntity)
-			return
-		}
-
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-
 		defer cancel()
 
-		order := model.Order{
-			Number:     orderNumber,
-			Status:     model.NEW,
-			UploadedAt: time.Now(),
-		}
-
-		_, err = oh.databaseService.CreateOrder(ctx, order, userID)
+		err = oh.orderService.CreateOrder(ctx, userID, string(body))
 
 		if err != nil {
-			if errors.Is(err, db.ErrOrderAlreadyUploadedByUser) {
+			if errors.Is(err, apperrors.ErrInvalidOrderNumber) {
+				http.Error(w, "not correct number", http.StatusUnprocessableEntity)
+				return
+			}
+			if errors.Is(err, apperrors.ErrOrderAlreadyUploadedByUser) {
 				w.WriteHeader(http.StatusOK)
 				return
 			}
-			if errors.Is(err, db.ErrOrderAlreadyUploadedByAnotherUser) {
+			if errors.Is(err, apperrors.ErrOrderAlreadyUploadedByAnotherUser) {
 				http.Error(w, "uploaded by another user", http.StatusConflict)
 				return
 			}
@@ -118,7 +92,7 @@ func (oh *OrderHandler) GetListOfUploadedOrders() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 		defer cancel()
 
-		orders := oh.databaseService.GetListOfUploadedOrders(ctx, userID)
+		orders := oh.orderService.GetListOfUploadedOrders(ctx, userID)
 
 		if len(orders) == 0 {
 			w.WriteHeader(http.StatusNoContent)

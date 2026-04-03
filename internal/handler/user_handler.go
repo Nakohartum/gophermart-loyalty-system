@@ -7,20 +7,20 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Nakohartum/gophermart-loyalty-system/internal/config/db"
+	"github.com/Nakohartum/gophermart-loyalty-system/internal/apperrors"
 	"github.com/Nakohartum/gophermart-loyalty-system/internal/model"
 	"github.com/Nakohartum/gophermart-loyalty-system/internal/service"
 )
 
 type UserHandler struct {
-	databaseService service.Database
-	authService     service.Auth
+	userService    service.User
+	balanceService service.Balance
 }
 
-func NewUserHandler(dbService service.Database, authService service.Auth) *UserHandler {
+func NewUserHandler(userService service.User, balanceService service.Balance) *UserHandler {
 	return &UserHandler{
-		databaseService: dbService,
-		authService:     authService,
+		userService:    userService,
+		balanceService: balanceService,
 	}
 }
 
@@ -43,10 +43,10 @@ func (uh *UserHandler) RegisterUser() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 		defer cancel()
 
-		userID, err := uh.databaseService.RegisterUser(ctx, req.Login, req.Password)
+		token, err := uh.userService.RegisterUser(ctx, req.Login, req.Password)
 
 		if err != nil {
-			if errors.Is(err, db.ErrUserAlreadyExists) {
+			if errors.Is(err, apperrors.ErrUserAlreadyExists) {
 				http.Error(w, err.Error(), http.StatusConflict)
 				return
 			}
@@ -54,11 +54,6 @@ func (uh *UserHandler) RegisterUser() http.HandlerFunc {
 			return
 		}
 
-		token, err := uh.authService.GenerateToken(userID)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
 		w.Header().Set("Authorization", "Bearer "+token)
 
 		w.WriteHeader(http.StatusOK)
@@ -86,10 +81,10 @@ func (uh *UserHandler) AuthenticateUser() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 		defer cancel()
 
-		userID, err := uh.databaseService.AuthenticateUser(ctx, req.Login, req.Password)
+		token, err := uh.userService.AuthenticateUser(ctx, req.Login, req.Password)
 
 		if err != nil {
-			if errors.Is(err, db.ErrPasswordNotMatch) {
+			if errors.Is(err, apperrors.ErrPasswordNotMatch) {
 				http.Error(w, "passwords not match", http.StatusUnauthorized)
 				return
 			}
@@ -97,11 +92,6 @@ func (uh *UserHandler) AuthenticateUser() http.HandlerFunc {
 			return
 		}
 
-		token, err := uh.authService.GenerateToken(userID)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
 		w.Header().Set("Authorization", "Bearer "+token)
 
 		w.WriteHeader(http.StatusOK)
@@ -126,7 +116,7 @@ func (uh *UserHandler) GetCurrentUserBalance() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 		defer cancel()
 
-		userBalance := uh.databaseService.GetCurrentUserBalance(ctx, userID)
+		userBalance := uh.balanceService.GetCurrentUserBalance(ctx, userID)
 
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(userBalance); err != nil {
@@ -164,10 +154,10 @@ func (uh *UserHandler) WithdrawBalance() http.HandlerFunc {
 
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 		defer cancel()
-		err := uh.databaseService.WithdrawBalance(ctx, req)
+		err := uh.balanceService.WithdrawBalance(ctx, req)
 
 		if err != nil {
-			if errors.Is(err, db.ErrInsufficientFunds) {
+			if errors.Is(err, apperrors.ErrInsufficientFunds) {
 				http.Error(w, "insufficient funds", http.StatusPaymentRequired)
 				return
 			}
@@ -196,7 +186,7 @@ func (uh *UserHandler) GetWithdrawalsInfo() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 		defer cancel()
 
-		withdrawals := uh.databaseService.GetWithdrawalsInfo(ctx, userID)
+		withdrawals := uh.balanceService.GetWithdrawalsInfo(ctx, userID)
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(withdrawals); err != nil {
 			http.Error(w, "failed to encode response", http.StatusInternalServerError)

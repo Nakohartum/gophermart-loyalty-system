@@ -9,71 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Nakohartum/gophermart-loyalty-system/internal/config/db"
+	"github.com/Nakohartum/gophermart-loyalty-system/internal/apperrors"
 	"github.com/Nakohartum/gophermart-loyalty-system/internal/mocks"
 	"github.com/Nakohartum/gophermart-loyalty-system/internal/model"
+	"github.com/Nakohartum/gophermart-loyalty-system/internal/service"
 	"go.uber.org/mock/gomock"
 )
-
-func TestTextOrders(t *testing.T) {
-	testCases := []struct {
-		name               string
-		method             string
-		body               string
-		withUser           bool
-		setup              func(database *mocks.MockDatabase)
-		expectedStatusCode int
-	}{
-		{
-			name:               "unsupported method",
-			method:             http.MethodPut,
-			expectedStatusCode: http.StatusMethodNotAllowed,
-		},
-		{
-			name:     "delegates to create order",
-			method:   http.MethodPost,
-			body:     "79927398713",
-			withUser: true,
-			setup: func(database *mocks.MockDatabase) {
-				database.EXPECT().CreateOrder(gomock.Any(), gomock.Any(), int64(42)).Return("79927398713", nil)
-			},
-			expectedStatusCode: http.StatusAccepted,
-		},
-		{
-			name:     "delegates to get list",
-			method:   http.MethodGet,
-			withUser: true,
-			setup: func(database *mocks.MockDatabase) {
-				database.EXPECT().GetListOfUploadedOrders(gomock.Any(), int64(42)).Return([]model.OrderResponse{{Number: "1", Status: model.NEW}})
-			},
-			expectedStatusCode: http.StatusOK,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			database := mocks.NewMockDatabase(ctrl)
-			auth := mocks.NewMockAuth(ctrl)
-			if tc.setup != nil {
-				tc.setup(database)
-			}
-
-			handler := NewOrderHandler(database, auth)
-			req := httptest.NewRequest(tc.method, "/api/user/orders", bytes.NewBufferString(tc.body))
-			if tc.withUser {
-				req = req.WithContext(context.WithValue(req.Context(), userIDContextKey, int64(42)))
-			}
-			recorder := httptest.NewRecorder()
-
-			handler.Orders().ServeHTTP(recorder, req)
-
-			if recorder.Code != tc.expectedStatusCode {
-				t.Fatalf("status code = %d, want %d", recorder.Code, tc.expectedStatusCode)
-			}
-		})
-	}
-}
 
 func TestTextCreateOrder(t *testing.T) {
 	testCases := []struct {
@@ -81,7 +22,7 @@ func TestTextCreateOrder(t *testing.T) {
 		method             string
 		body               string
 		withUser           bool
-		setup              func(database *mocks.MockDatabase)
+		setup              func(repo *mocks.MockRepository)
 		expectedStatusCode int
 	}{
 		{name: "wrong method", method: http.MethodGet, expectedStatusCode: http.StatusBadRequest},
@@ -93,8 +34,8 @@ func TestTextCreateOrder(t *testing.T) {
 			method:   http.MethodPost,
 			body:     "79927398713",
 			withUser: true,
-			setup: func(database *mocks.MockDatabase) {
-				database.EXPECT().CreateOrder(gomock.Any(), gomock.Any(), int64(42)).Return("", db.ErrOrderAlreadyUploadedByUser)
+			setup: func(repo *mocks.MockRepository) {
+				repo.EXPECT().CreateOrder(gomock.Any(), gomock.Any(), int64(42)).Return("", apperrors.ErrOrderAlreadyUploadedByUser)
 			},
 			expectedStatusCode: http.StatusOK,
 		},
@@ -103,8 +44,8 @@ func TestTextCreateOrder(t *testing.T) {
 			method:   http.MethodPost,
 			body:     "79927398713",
 			withUser: true,
-			setup: func(database *mocks.MockDatabase) {
-				database.EXPECT().CreateOrder(gomock.Any(), gomock.Any(), int64(42)).Return("", db.ErrOrderAlreadyUploadedByAnotherUser)
+			setup: func(repo *mocks.MockRepository) {
+				repo.EXPECT().CreateOrder(gomock.Any(), gomock.Any(), int64(42)).Return("", apperrors.ErrOrderAlreadyUploadedByAnotherUser)
 			},
 			expectedStatusCode: http.StatusConflict,
 		},
@@ -113,8 +54,8 @@ func TestTextCreateOrder(t *testing.T) {
 			method:   http.MethodPost,
 			body:     "79927398713",
 			withUser: true,
-			setup: func(database *mocks.MockDatabase) {
-				database.EXPECT().CreateOrder(gomock.Any(), gomock.Any(), int64(42)).Return("", errors.New("boom"))
+			setup: func(repo *mocks.MockRepository) {
+				repo.EXPECT().CreateOrder(gomock.Any(), gomock.Any(), int64(42)).Return("", errors.New("boom"))
 			},
 			expectedStatusCode: http.StatusInternalServerError,
 		},
@@ -123,8 +64,8 @@ func TestTextCreateOrder(t *testing.T) {
 			method:   http.MethodPost,
 			body:     "79927398713",
 			withUser: true,
-			setup: func(database *mocks.MockDatabase) {
-				database.EXPECT().CreateOrder(gomock.Any(), gomock.AssignableToTypeOf(model.Order{}), int64(42)).DoAndReturn(
+			setup: func(repo *mocks.MockRepository) {
+				repo.EXPECT().CreateOrder(gomock.Any(), gomock.AssignableToTypeOf(model.Order{}), int64(42)).DoAndReturn(
 					func(ctx context.Context, order model.Order, userID int64) (string, error) {
 						if order.Number != "79927398713" || order.Status != model.NEW || userID != 42 {
 							t.Fatalf("unexpected order payload: %#v userID=%d", order, userID)
@@ -143,13 +84,14 @@ func TestTextCreateOrder(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
-			database := mocks.NewMockDatabase(ctrl)
+			repo := mocks.NewMockRepository(ctrl)
 			auth := mocks.NewMockAuth(ctrl)
 			if tc.setup != nil {
-				tc.setup(database)
+				tc.setup(repo)
 			}
 
-			handler := NewOrderHandler(database, auth)
+			appService := service.NewAppService(repo, auth)
+			handler := NewOrderHandler(appService)
 			req := httptest.NewRequest(tc.method, "/api/user/orders", bytes.NewBufferString(tc.body))
 			if tc.withUser {
 				req = req.WithContext(context.WithValue(req.Context(), userIDContextKey, int64(42)))
@@ -170,7 +112,7 @@ func TestTextGetListOfUploadedOrders(t *testing.T) {
 		name               string
 		method             string
 		withUser           bool
-		setup              func(database *mocks.MockDatabase)
+		setup              func(repo *mocks.MockRepository)
 		expectedStatusCode int
 		expectedBody       string
 	}{
@@ -180,8 +122,8 @@ func TestTextGetListOfUploadedOrders(t *testing.T) {
 			name:     "no orders",
 			method:   http.MethodGet,
 			withUser: true,
-			setup: func(database *mocks.MockDatabase) {
-				database.EXPECT().GetListOfUploadedOrders(gomock.Any(), int64(42)).Return(nil)
+			setup: func(repo *mocks.MockRepository) {
+				repo.EXPECT().GetListOfUploadedOrders(gomock.Any(), int64(42)).Return(nil)
 			},
 			expectedStatusCode: http.StatusNoContent,
 		},
@@ -189,9 +131,9 @@ func TestTextGetListOfUploadedOrders(t *testing.T) {
 			name:     "success",
 			method:   http.MethodGet,
 			withUser: true,
-			setup: func(database *mocks.MockDatabase) {
+			setup: func(repo *mocks.MockRepository) {
 				value := 10.5
-				database.EXPECT().GetListOfUploadedOrders(gomock.Any(), int64(42)).Return([]model.OrderResponse{
+				repo.EXPECT().GetListOfUploadedOrders(gomock.Any(), int64(42)).Return([]model.OrderResponse{
 					{Number: "79927398713", Status: model.PROCESSED, Accrual: &value},
 				})
 			},
@@ -203,13 +145,14 @@ func TestTextGetListOfUploadedOrders(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
-			database := mocks.NewMockDatabase(ctrl)
+			repo := mocks.NewMockRepository(ctrl)
 			auth := mocks.NewMockAuth(ctrl)
 			if tc.setup != nil {
-				tc.setup(database)
+				tc.setup(repo)
 			}
 
-			handler := NewOrderHandler(database, auth)
+			appService := service.NewAppService(repo, auth)
+			handler := NewOrderHandler(appService)
 			req := httptest.NewRequest(tc.method, "/api/user/orders", nil)
 			if tc.withUser {
 				req = req.WithContext(context.WithValue(req.Context(), userIDContextKey, int64(42)))

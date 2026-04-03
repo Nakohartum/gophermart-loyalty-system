@@ -6,7 +6,6 @@
 //	mockgen -source internal/service/interfaces.go -destination internal/mocks/service_mocks.go -package mocks
 //
 
-// Package mocks is a generated GoMock package.
 package mocks
 
 import (
@@ -17,90 +16,32 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
-// MockDatabase is a mock of Database interface.
-type MockDatabase struct {
+// MockOrderProcessing is a mock of OrderProcessing interface.
+type MockOrderProcessing struct {
 	ctrl     *gomock.Controller
-	recorder *MockDatabaseMockRecorder
+	recorder *MockOrderProcessingMockRecorder
 	isgomock struct{}
 }
 
-// MockDatabaseMockRecorder is the mock recorder for MockDatabase.
-type MockDatabaseMockRecorder struct {
-	mock *MockDatabase
+// MockOrderProcessingMockRecorder is the mock recorder for MockOrderProcessing.
+type MockOrderProcessingMockRecorder struct {
+	mock *MockOrderProcessing
 }
 
-// NewMockDatabase creates a new mock instance.
-func NewMockDatabase(ctrl *gomock.Controller) *MockDatabase {
-	mock := &MockDatabase{ctrl: ctrl}
-	mock.recorder = &MockDatabaseMockRecorder{mock}
+// NewMockOrderProcessing creates a new mock instance.
+func NewMockOrderProcessing(ctrl *gomock.Controller) *MockOrderProcessing {
+	mock := &MockOrderProcessing{ctrl: ctrl}
+	mock.recorder = &MockOrderProcessingMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockDatabase) EXPECT() *MockDatabaseMockRecorder {
+func (m *MockOrderProcessing) EXPECT() *MockOrderProcessingMockRecorder {
 	return m.recorder
 }
 
-// AuthenticateUser mocks base method.
-func (m *MockDatabase) AuthenticateUser(ctx context.Context, login, password string) (int64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AuthenticateUser", ctx, login, password)
-	ret0, _ := ret[0].(int64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AuthenticateUser indicates an expected call of AuthenticateUser.
-func (mr *MockDatabaseMockRecorder) AuthenticateUser(ctx, login, password any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthenticateUser", reflect.TypeOf((*MockDatabase)(nil).AuthenticateUser), ctx, login, password)
-}
-
-// CreateOrder mocks base method.
-func (m *MockDatabase) CreateOrder(ctx context.Context, order model.Order, userID int64) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateOrder", ctx, order, userID)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CreateOrder indicates an expected call of CreateOrder.
-func (mr *MockDatabaseMockRecorder) CreateOrder(ctx, order, userID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateOrder", reflect.TypeOf((*MockDatabase)(nil).CreateOrder), ctx, order, userID)
-}
-
-// GetCurrentUserBalance mocks base method.
-func (m *MockDatabase) GetCurrentUserBalance(ctx context.Context, userID int64) model.BalanceResponse {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCurrentUserBalance", ctx, userID)
-	ret0, _ := ret[0].(model.BalanceResponse)
-	return ret0
-}
-
-// GetCurrentUserBalance indicates an expected call of GetCurrentUserBalance.
-func (mr *MockDatabaseMockRecorder) GetCurrentUserBalance(ctx, userID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCurrentUserBalance", reflect.TypeOf((*MockDatabase)(nil).GetCurrentUserBalance), ctx, userID)
-}
-
-// GetListOfUploadedOrders mocks base method.
-func (m *MockDatabase) GetListOfUploadedOrders(ctx context.Context, userID int64) []model.OrderResponse {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetListOfUploadedOrders", ctx, userID)
-	ret0, _ := ret[0].([]model.OrderResponse)
-	return ret0
-}
-
-// GetListOfUploadedOrders indicates an expected call of GetListOfUploadedOrders.
-func (mr *MockDatabaseMockRecorder) GetListOfUploadedOrders(ctx, userID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetListOfUploadedOrders", reflect.TypeOf((*MockDatabase)(nil).GetListOfUploadedOrders), ctx, userID)
-}
-
 // GetOrdersForProcessing mocks base method.
-func (m *MockDatabase) GetOrdersForProcessing(ctx context.Context) ([]model.Order, error) {
+func (m *MockOrderProcessing) GetOrdersForProcessing(ctx context.Context) ([]model.Order, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetOrdersForProcessing", ctx)
 	ret0, _ := ret[0].([]model.Order)
@@ -109,42 +50,13 @@ func (m *MockDatabase) GetOrdersForProcessing(ctx context.Context) ([]model.Orde
 }
 
 // GetOrdersForProcessing indicates an expected call of GetOrdersForProcessing.
-func (mr *MockDatabaseMockRecorder) GetOrdersForProcessing(ctx any) *gomock.Call {
+func (mr *MockOrderProcessingMockRecorder) GetOrdersForProcessing(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrdersForProcessing", reflect.TypeOf((*MockDatabase)(nil).GetOrdersForProcessing), ctx)
-}
-
-// GetWithdrawalsInfo mocks base method.
-func (m *MockDatabase) GetWithdrawalsInfo(ctx context.Context, userID int64) []model.Withdrawal {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetWithdrawalsInfo", ctx, userID)
-	ret0, _ := ret[0].([]model.Withdrawal)
-	return ret0
-}
-
-// GetWithdrawalsInfo indicates an expected call of GetWithdrawalsInfo.
-func (mr *MockDatabaseMockRecorder) GetWithdrawalsInfo(ctx, userID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWithdrawalsInfo", reflect.TypeOf((*MockDatabase)(nil).GetWithdrawalsInfo), ctx, userID)
-}
-
-// RegisterUser mocks base method.
-func (m *MockDatabase) RegisterUser(ctx context.Context, login, password string) (int64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RegisterUser", ctx, login, password)
-	ret0, _ := ret[0].(int64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// RegisterUser indicates an expected call of RegisterUser.
-func (mr *MockDatabaseMockRecorder) RegisterUser(ctx, login, password any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterUser", reflect.TypeOf((*MockDatabase)(nil).RegisterUser), ctx, login, password)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrdersForProcessing", reflect.TypeOf((*MockOrderProcessing)(nil).GetOrdersForProcessing), ctx)
 }
 
 // UpdateOrder mocks base method.
-func (m *MockDatabase) UpdateOrder(ctx context.Context, userID int64, number string, status model.Status, accrual *float64) error {
+func (m *MockOrderProcessing) UpdateOrder(ctx context.Context, userID int64, number string, status model.Status, accrual *float64) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateOrder", ctx, userID, number, status, accrual)
 	ret0, _ := ret[0].(error)
@@ -152,23 +64,9 @@ func (m *MockDatabase) UpdateOrder(ctx context.Context, userID int64, number str
 }
 
 // UpdateOrder indicates an expected call of UpdateOrder.
-func (mr *MockDatabaseMockRecorder) UpdateOrder(ctx, userID, number, status, accrual any) *gomock.Call {
+func (mr *MockOrderProcessingMockRecorder) UpdateOrder(ctx, userID, number, status, accrual any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateOrder", reflect.TypeOf((*MockDatabase)(nil).UpdateOrder), ctx, userID, number, status, accrual)
-}
-
-// WithdrawBalance mocks base method.
-func (m *MockDatabase) WithdrawBalance(ctx context.Context, request model.WithdrawRequest) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WithdrawBalance", ctx, request)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// WithdrawBalance indicates an expected call of WithdrawBalance.
-func (mr *MockDatabaseMockRecorder) WithdrawBalance(ctx, request any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithdrawBalance", reflect.TypeOf((*MockDatabase)(nil).WithdrawBalance), ctx, request)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateOrder", reflect.TypeOf((*MockOrderProcessing)(nil).UpdateOrder), ctx, userID, number, status, accrual)
 }
 
 // MockAuth is a mock of Auth interface.

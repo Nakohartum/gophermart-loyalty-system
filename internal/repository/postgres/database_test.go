@@ -1,11 +1,13 @@
-package db
+package postgres
 
 import (
 	"context"
 	"testing"
+
+	"github.com/Nakohartum/gophermart-loyalty-system/internal/apperrors"
 )
 
-func TestTextNewPgDatabase(t *testing.T) {
+func TestTextNewDatabase(t *testing.T) {
 	testCases := []struct {
 		name      string
 		secretKey string
@@ -16,9 +18,9 @@ func TestTextNewPgDatabase(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			database := NewPgDatabase(tc.secretKey)
+			database := New(tc.secretKey)
 			if database == nil {
-				t.Fatal("NewPgDatabase returned nil")
+				t.Fatal("New returned nil")
 			}
 			if database.secretKey != tc.secretKey {
 				t.Fatalf("secretKey = %q, want %q", database.secretKey, tc.secretKey)
@@ -30,10 +32,10 @@ func TestTextNewPgDatabase(t *testing.T) {
 func TestTextCloseConnection(t *testing.T) {
 	testCases := []struct {
 		name        string
-		connection  *PgDatabase
+		connection  *Database
 		expectedErr error
 	}{
-		{name: "no connection", connection: &PgDatabase{}, expectedErr: ErrNoConnectionToClose},
+		{name: "no connection", connection: &Database{}, expectedErr: apperrors.ErrNoConnectionToClose},
 	}
 
 	for _, tc := range testCases {
@@ -80,10 +82,10 @@ func TestTextHashPassword(t *testing.T) {
 func TestTextRunMigrations(t *testing.T) {
 	testCases := []struct {
 		name        string
-		database    *PgDatabase
+		database    *Database
 		expectedErr error
 	}{
-		{name: "no connection", database: &PgDatabase{}, expectedErr: ErrNoConnectionToRunMigrations},
+		{name: "no connection", database: &Database{}, expectedErr: apperrors.ErrNoConnectionToRunMigrations},
 	}
 
 	for _, tc := range testCases {

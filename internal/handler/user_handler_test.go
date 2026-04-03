@@ -9,9 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Nakohartum/gophermart-loyalty-system/internal/config/db"
+	"github.com/Nakohartum/gophermart-loyalty-system/internal/apperrors"
 	"github.com/Nakohartum/gophermart-loyalty-system/internal/mocks"
 	"github.com/Nakohartum/gophermart-loyalty-system/internal/model"
+	"github.com/Nakohartum/gophermart-loyalty-system/internal/service"
 	"go.uber.org/mock/gomock"
 )
 
@@ -20,7 +21,7 @@ func TestTextRegisterUser(t *testing.T) {
 		name               string
 		method             string
 		body               string
-		setup              func(database *mocks.MockDatabase, auth *mocks.MockAuth)
+		setup              func(repo *mocks.MockRepository, auth *mocks.MockAuth)
 		expectedStatusCode int
 		expectedAuthHeader string
 	}{
@@ -31,8 +32,8 @@ func TestTextRegisterUser(t *testing.T) {
 			name:   "user already exists",
 			method: http.MethodPost,
 			body:   `{"login":"user","password":"pass"}`,
-			setup: func(database *mocks.MockDatabase, auth *mocks.MockAuth) {
-				database.EXPECT().RegisterUser(gomock.Any(), "user", "pass").Return(int64(0), db.ErrUserAlreadyExists)
+			setup: func(repo *mocks.MockRepository, auth *mocks.MockAuth) {
+				repo.EXPECT().RegisterUser(gomock.Any(), "user", "pass").Return(int64(0), apperrors.ErrUserAlreadyExists)
 			},
 			expectedStatusCode: http.StatusConflict,
 		},
@@ -40,8 +41,8 @@ func TestTextRegisterUser(t *testing.T) {
 			name:   "database error",
 			method: http.MethodPost,
 			body:   `{"login":"user","password":"pass"}`,
-			setup: func(database *mocks.MockDatabase, auth *mocks.MockAuth) {
-				database.EXPECT().RegisterUser(gomock.Any(), "user", "pass").Return(int64(0), errors.New("boom"))
+			setup: func(repo *mocks.MockRepository, auth *mocks.MockAuth) {
+				repo.EXPECT().RegisterUser(gomock.Any(), "user", "pass").Return(int64(0), errors.New("boom"))
 			},
 			expectedStatusCode: http.StatusInternalServerError,
 		},
@@ -49,8 +50,8 @@ func TestTextRegisterUser(t *testing.T) {
 			name:   "token error",
 			method: http.MethodPost,
 			body:   `{"login":"user","password":"pass"}`,
-			setup: func(database *mocks.MockDatabase, auth *mocks.MockAuth) {
-				database.EXPECT().RegisterUser(gomock.Any(), "user", "pass").Return(int64(42), nil)
+			setup: func(repo *mocks.MockRepository, auth *mocks.MockAuth) {
+				repo.EXPECT().RegisterUser(gomock.Any(), "user", "pass").Return(int64(42), nil)
 				auth.EXPECT().GenerateToken(int64(42)).Return("", errors.New("token failed"))
 			},
 			expectedStatusCode: http.StatusInternalServerError,
@@ -59,8 +60,8 @@ func TestTextRegisterUser(t *testing.T) {
 			name:   "success",
 			method: http.MethodPost,
 			body:   `{"login":"user","password":"pass"}`,
-			setup: func(database *mocks.MockDatabase, auth *mocks.MockAuth) {
-				database.EXPECT().RegisterUser(gomock.Any(), "user", "pass").Return(int64(42), nil)
+			setup: func(repo *mocks.MockRepository, auth *mocks.MockAuth) {
+				repo.EXPECT().RegisterUser(gomock.Any(), "user", "pass").Return(int64(42), nil)
 				auth.EXPECT().GenerateToken(int64(42)).Return("token", nil)
 			},
 			expectedStatusCode: http.StatusOK,
@@ -71,13 +72,14 @@ func TestTextRegisterUser(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
-			database := mocks.NewMockDatabase(ctrl)
+			repo := mocks.NewMockRepository(ctrl)
 			auth := mocks.NewMockAuth(ctrl)
 			if tc.setup != nil {
-				tc.setup(database, auth)
+				tc.setup(repo, auth)
 			}
 
-			handler := NewUserHandler(database, auth)
+			appService := service.NewAppService(repo, auth)
+			handler := NewUserHandler(appService, appService)
 			req := httptest.NewRequest(tc.method, "/api/user/register", bytes.NewBufferString(tc.body))
 			recorder := httptest.NewRecorder()
 
@@ -98,7 +100,7 @@ func TestTextAuthenticateUser(t *testing.T) {
 		name               string
 		method             string
 		body               string
-		setup              func(database *mocks.MockDatabase, auth *mocks.MockAuth)
+		setup              func(repo *mocks.MockRepository, auth *mocks.MockAuth)
 		expectedStatusCode int
 		expectedAuthHeader string
 	}{
@@ -109,8 +111,8 @@ func TestTextAuthenticateUser(t *testing.T) {
 			name:   "password mismatch",
 			method: http.MethodPost,
 			body:   `{"login":"user","password":"pass"}`,
-			setup: func(database *mocks.MockDatabase, auth *mocks.MockAuth) {
-				database.EXPECT().AuthenticateUser(gomock.Any(), "user", "pass").Return(int64(0), db.ErrPasswordNotMatch)
+			setup: func(repo *mocks.MockRepository, auth *mocks.MockAuth) {
+				repo.EXPECT().AuthenticateUser(gomock.Any(), "user", "pass").Return(int64(0), apperrors.ErrPasswordNotMatch)
 			},
 			expectedStatusCode: http.StatusUnauthorized,
 		},
@@ -118,8 +120,8 @@ func TestTextAuthenticateUser(t *testing.T) {
 			name:   "database error",
 			method: http.MethodPost,
 			body:   `{"login":"user","password":"pass"}`,
-			setup: func(database *mocks.MockDatabase, auth *mocks.MockAuth) {
-				database.EXPECT().AuthenticateUser(gomock.Any(), "user", "pass").Return(int64(0), errors.New("boom"))
+			setup: func(repo *mocks.MockRepository, auth *mocks.MockAuth) {
+				repo.EXPECT().AuthenticateUser(gomock.Any(), "user", "pass").Return(int64(0), errors.New("boom"))
 			},
 			expectedStatusCode: http.StatusInternalServerError,
 		},
@@ -127,8 +129,8 @@ func TestTextAuthenticateUser(t *testing.T) {
 			name:   "token error",
 			method: http.MethodPost,
 			body:   `{"login":"user","password":"pass"}`,
-			setup: func(database *mocks.MockDatabase, auth *mocks.MockAuth) {
-				database.EXPECT().AuthenticateUser(gomock.Any(), "user", "pass").Return(int64(42), nil)
+			setup: func(repo *mocks.MockRepository, auth *mocks.MockAuth) {
+				repo.EXPECT().AuthenticateUser(gomock.Any(), "user", "pass").Return(int64(42), nil)
 				auth.EXPECT().GenerateToken(int64(42)).Return("", errors.New("token failed"))
 			},
 			expectedStatusCode: http.StatusInternalServerError,
@@ -137,8 +139,8 @@ func TestTextAuthenticateUser(t *testing.T) {
 			name:   "success",
 			method: http.MethodPost,
 			body:   `{"login":"user","password":"pass"}`,
-			setup: func(database *mocks.MockDatabase, auth *mocks.MockAuth) {
-				database.EXPECT().AuthenticateUser(gomock.Any(), "user", "pass").Return(int64(42), nil)
+			setup: func(repo *mocks.MockRepository, auth *mocks.MockAuth) {
+				repo.EXPECT().AuthenticateUser(gomock.Any(), "user", "pass").Return(int64(42), nil)
 				auth.EXPECT().GenerateToken(int64(42)).Return("token", nil)
 			},
 			expectedStatusCode: http.StatusOK,
@@ -149,13 +151,14 @@ func TestTextAuthenticateUser(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
-			database := mocks.NewMockDatabase(ctrl)
+			repo := mocks.NewMockRepository(ctrl)
 			auth := mocks.NewMockAuth(ctrl)
 			if tc.setup != nil {
-				tc.setup(database, auth)
+				tc.setup(repo, auth)
 			}
 
-			handler := NewUserHandler(database, auth)
+			appService := service.NewAppService(repo, auth)
+			handler := NewUserHandler(appService, appService)
 			req := httptest.NewRequest(tc.method, "/api/user/login", bytes.NewBufferString(tc.body))
 			recorder := httptest.NewRecorder()
 
@@ -176,7 +179,7 @@ func TestTextGetCurrentUserBalance(t *testing.T) {
 		name               string
 		method             string
 		withUser           bool
-		setup              func(database *mocks.MockDatabase)
+		setup              func(repo *mocks.MockRepository)
 		expectedStatusCode int
 		expectedBody       string
 	}{
@@ -186,8 +189,8 @@ func TestTextGetCurrentUserBalance(t *testing.T) {
 			name:     "success",
 			method:   http.MethodGet,
 			withUser: true,
-			setup: func(database *mocks.MockDatabase) {
-				database.EXPECT().GetCurrentUserBalance(gomock.Any(), int64(42)).Return(model.BalanceResponse{Current: 100.5, Withdrawn: 10.5})
+			setup: func(repo *mocks.MockRepository) {
+				repo.EXPECT().GetCurrentUserBalance(gomock.Any(), int64(42)).Return(model.BalanceResponse{Current: 100.5, Withdrawn: 10.5})
 			},
 			expectedStatusCode: http.StatusOK,
 			expectedBody:       "{\"current\":100.5,\"withdrawn\":10.5}\n",
@@ -197,13 +200,14 @@ func TestTextGetCurrentUserBalance(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
-			database := mocks.NewMockDatabase(ctrl)
+			repo := mocks.NewMockRepository(ctrl)
 			auth := mocks.NewMockAuth(ctrl)
 			if tc.setup != nil {
-				tc.setup(database)
+				tc.setup(repo)
 			}
 
-			handler := NewUserHandler(database, auth)
+			appService := service.NewAppService(repo, auth)
+			handler := NewUserHandler(appService, appService)
 			req := httptest.NewRequest(tc.method, "/api/user/balance", nil)
 			if tc.withUser {
 				req = req.WithContext(context.WithValue(req.Context(), userIDContextKey, int64(42)))
@@ -228,7 +232,7 @@ func TestTextWithdrawBalance(t *testing.T) {
 		method             string
 		body               string
 		withUser           bool
-		setup              func(database *mocks.MockDatabase)
+		setup              func(repo *mocks.MockRepository)
 		expectedStatusCode int
 	}{
 		{name: "wrong method", method: http.MethodGet, expectedStatusCode: http.StatusBadRequest},
@@ -240,8 +244,8 @@ func TestTextWithdrawBalance(t *testing.T) {
 			method:   http.MethodPost,
 			body:     `{"order":"79927398713","sum":10}`,
 			withUser: true,
-			setup: func(database *mocks.MockDatabase) {
-				database.EXPECT().WithdrawBalance(gomock.Any(), model.WithdrawRequest{UserID: 42, Order: "79927398713", Sum: 10}).Return(db.ErrInsufficientFunds)
+			setup: func(repo *mocks.MockRepository) {
+				repo.EXPECT().WithdrawBalance(gomock.Any(), model.WithdrawRequest{UserID: 42, Order: "79927398713", Sum: 10}).Return(apperrors.ErrInsufficientFunds)
 			},
 			expectedStatusCode: http.StatusPaymentRequired,
 		},
@@ -250,8 +254,8 @@ func TestTextWithdrawBalance(t *testing.T) {
 			method:   http.MethodPost,
 			body:     `{"order":"79927398713","sum":10}`,
 			withUser: true,
-			setup: func(database *mocks.MockDatabase) {
-				database.EXPECT().WithdrawBalance(gomock.Any(), model.WithdrawRequest{UserID: 42, Order: "79927398713", Sum: 10}).Return(errors.New("boom"))
+			setup: func(repo *mocks.MockRepository) {
+				repo.EXPECT().WithdrawBalance(gomock.Any(), model.WithdrawRequest{UserID: 42, Order: "79927398713", Sum: 10}).Return(errors.New("boom"))
 			},
 			expectedStatusCode: http.StatusInternalServerError,
 		},
@@ -260,8 +264,8 @@ func TestTextWithdrawBalance(t *testing.T) {
 			method:   http.MethodPost,
 			body:     `{"order":"79927398713","sum":10}`,
 			withUser: true,
-			setup: func(database *mocks.MockDatabase) {
-				database.EXPECT().WithdrawBalance(gomock.Any(), model.WithdrawRequest{UserID: 42, Order: "79927398713", Sum: 10}).Return(nil)
+			setup: func(repo *mocks.MockRepository) {
+				repo.EXPECT().WithdrawBalance(gomock.Any(), model.WithdrawRequest{UserID: 42, Order: "79927398713", Sum: 10}).Return(nil)
 			},
 			expectedStatusCode: http.StatusOK,
 		},
@@ -270,13 +274,14 @@ func TestTextWithdrawBalance(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
-			database := mocks.NewMockDatabase(ctrl)
+			repo := mocks.NewMockRepository(ctrl)
 			auth := mocks.NewMockAuth(ctrl)
 			if tc.setup != nil {
-				tc.setup(database)
+				tc.setup(repo)
 			}
 
-			handler := NewUserHandler(database, auth)
+			appService := service.NewAppService(repo, auth)
+			handler := NewUserHandler(appService, appService)
 			req := httptest.NewRequest(tc.method, "/api/user/balance/withdraw", bytes.NewBufferString(tc.body))
 			if tc.withUser {
 				req = req.WithContext(context.WithValue(req.Context(), userIDContextKey, int64(42)))
@@ -297,7 +302,7 @@ func TestTextGetWithdrawalsInfo(t *testing.T) {
 		name               string
 		method             string
 		withUser           bool
-		setup              func(database *mocks.MockDatabase)
+		setup              func(repo *mocks.MockRepository)
 		expectedStatusCode int
 		expectedBody       string
 	}{
@@ -307,8 +312,8 @@ func TestTextGetWithdrawalsInfo(t *testing.T) {
 			name:     "success",
 			method:   http.MethodGet,
 			withUser: true,
-			setup: func(database *mocks.MockDatabase) {
-				database.EXPECT().GetWithdrawalsInfo(gomock.Any(), int64(42)).Return([]model.Withdrawal{
+			setup: func(repo *mocks.MockRepository) {
+				repo.EXPECT().GetWithdrawalsInfo(gomock.Any(), int64(42)).Return([]model.Withdrawal{
 					{Order: "79927398713", Sum: 10, ProcessedAt: time.Unix(0, 0).UTC()},
 				})
 			},
@@ -320,13 +325,14 @@ func TestTextGetWithdrawalsInfo(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
-			database := mocks.NewMockDatabase(ctrl)
+			repo := mocks.NewMockRepository(ctrl)
 			auth := mocks.NewMockAuth(ctrl)
 			if tc.setup != nil {
-				tc.setup(database)
+				tc.setup(repo)
 			}
 
-			handler := NewUserHandler(database, auth)
+			appService := service.NewAppService(repo, auth)
+			handler := NewUserHandler(appService, appService)
 			req := httptest.NewRequest(tc.method, "/api/user/withdrawals", nil)
 			if tc.withUser {
 				req = req.WithContext(context.WithValue(req.Context(), userIDContextKey, int64(42)))
