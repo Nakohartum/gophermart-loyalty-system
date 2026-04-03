@@ -1,0 +1,17 @@
+package apperrors
+
+import "errors"
+
+var (
+	ErrNoConnectionToClose               = errors.New("no connection to close")
+	ErrNoConnectionToRunMigrations       = errors.New("no connection to run migrations")
+	ErrInvalidOrderNumber                = errors.New("invalid order number")
+	ErrPasswordNotMatch                  = errors.New("passwords do not match")
+	ErrOrderNotFound                     = errors.New("order not found")
+	ErrUserNotFound                      = errors.New("user not found")
+	ErrOrderAlreadyProcessed             = errors.New("order already processed")
+	ErrUserAlreadyExists                 = errors.New("user already exists")
+	ErrOrderAlreadyUploadedByUser        = errors.New("order already uploaded by user")
+	ErrOrderAlreadyUploadedByAnotherUser = errors.New("order already uploaded by another user")
+	ErrInsufficientFunds                 = errors.New("insufficient funds")
+)
